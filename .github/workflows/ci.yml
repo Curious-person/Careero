@@ -2,9 +2,10 @@ name: Monorepo CI
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "main" ] # Only run on push when code is safely landed in main
   pull_request:
-    branches: [ "main", "dev" ]
+    branches: [ "main", "dev" ] # Run the checks on PRs targeting main or dev
+
 
 jobs:
   build-web:

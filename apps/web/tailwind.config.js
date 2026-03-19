@@ -17,6 +17,12 @@ module.exports = {
     },
     extend: {
       colors: {
+        brand: {
+          blue: "#007AFF",
+          green: "#34C759",
+          orange: "#FF9500",
+          purple: "#AF52DE",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -69,6 +75,10 @@ module.exports = {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+      },
+      fontFamily: {
+        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["Outfit", "sans-serif"],
       },
     },
   },

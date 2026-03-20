@@ -1,5 +1,6 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import routes from './routes/v1';
 import { errorHandler } from './middlewares/error.middleware';
 
@@ -11,9 +12,14 @@ app.use(express.json());
 // parse urlencoded request body
 app.use(express.urlencoded({ extended: true }));
 
-// enable cors
-app.use(cors());
-app.options('*', cors());
+// enable cookies
+app.use(cookieParser());
+
+// enable cors for cookies
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true,
+}));
 
 // v1 api routes
 app.use('/api/v1', routes);

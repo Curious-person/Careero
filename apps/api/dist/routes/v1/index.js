@@ -5,11 +5,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const health_route_1 = __importDefault(require("./health.route"));
+const auth_route_1 = __importDefault(require("./auth.route"));
 const router = express_1.default.Router();
 const defaultRoutes = [
     {
         path: '/health',
         route: health_route_1.default,
+    },
+    {
+        path: '/auth',
+        route: auth_route_1.default,
     },
 ];
 defaultRoutes.forEach((route) => {

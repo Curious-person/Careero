@@ -1,4 +1,0 @@
-{
-  "/(pages)/landing/page": "app/(pages)/landing/page.js",
-  "/company/team/page": "app/company/team/page.js"
-}

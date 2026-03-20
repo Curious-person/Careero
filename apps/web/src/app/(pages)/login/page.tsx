@@ -19,7 +19,7 @@ export default function LoginPage() {
 
   const devUsers = [
     { label: "Student", path: "/dashboard/student" },
-    { label: "School", path: "/dashboard/school" },
+    { label: "School", path: "/schoolpage" },
     { label: "Client", path: "/dashboard/client" },
   ]
 

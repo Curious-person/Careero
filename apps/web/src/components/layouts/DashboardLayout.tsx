@@ -15,20 +15,31 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-interface DashboardLayoutProps {
-  children: React.ReactNode
+interface NavItem {
+  name: string
+  href?: string
+  icon: React.ElementType
+  onClick?: () => void
+  active?: boolean
 }
 
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
+interface DashboardLayoutProps {
+  children: React.ReactNode
+  navigation?: NavItem[]
+}
+
+export default function DashboardLayout({ children, navigation: navProp }: DashboardLayoutProps) {
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const navigation = [
+  const defaultNavigation: NavItem[] = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Projects", href: "/dashboard/projects", icon: FileText },
     { name: "Team", href: "/dashboard/team", icon: Users },
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ]
+
+  const navigation = navProp ?? defaultNavigation
 
   return (
     <div className="min-h-screen bg-muted/50">
@@ -43,9 +54,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Sidebar */}
       <aside className={`
         fixed top-0 left-0 z-50 h-screen w-64 bg-background border-r
-        transform transition-transform duration-200 ease-in-out
-        lg:translate-x-0
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+        transition-transform duration-200 ease-in-out
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
       `}>
         <div className="flex flex-col h-full">
           {/* Logo */}
@@ -54,6 +64,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               Pathly
             </Link>
             <button
+              type="button"
+              aria-label="Close sidebar"
               onClick={() => setSidebarOpen(false)}
               className="lg:hidden text-muted-foreground hover:text-foreground"
             >
@@ -64,20 +76,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {/* Navigation */}
           <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`
-                    flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium
-                    transition-colors
-                    ${isActive 
-                      ? "bg-primary text-primary-foreground" 
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }
-                  `}
-                >
+              const isActive = item.active ?? (item.href ? pathname === item.href : false)
+              const className = `
+                flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium
+                transition-colors
+                ${isActive
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }
+              `
+              return item.onClick ? (
+                <button type="button" key={item.name} onClick={item.onClick} className={`w-full ${className}`}>
+                  <item.icon className="h-5 w-5" />
+                  {item.name}
+                </button>
+              ) : (
+                <Link key={item.name} href={item.href!} className={className}>
                   <item.icon className="h-5 w-5" />
                   {item.name}
                 </Link>
@@ -112,6 +126,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <header className="sticky top-0 z-30 h-16 bg-background/80 backdrop-blur border-b">
           <div className="flex items-center justify-between h-full px-4">
             <button
+              type="button"
+              aria-label="Open sidebar"
               onClick={() => setSidebarOpen(true)}
               className="lg:hidden text-muted-foreground hover:text-foreground"
             >
@@ -119,7 +135,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </button>
             <div className="flex-1" />
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" className="relative">
+              <Button type="button" variant="ghost" size="icon" aria-label="Notifications" className="relative">
                 <Bell className="h-5 w-5" />
                 <span className="absolute top-1 right-1 h-2 w-2 bg-destructive rounded-full" />
               </Button>

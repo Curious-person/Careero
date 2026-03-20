@@ -29,7 +29,7 @@ import {
   InputOTPSlot,
 } from '@/components/ui/input-otp'
 
-type Step = 'EMAIL' | 'STUDENT_ID' | 'PASSWORD' | 'OTP' | 'REGISTER_PASSWORD'
+type Step = 'EMAIL' | 'PASSWORD' | 'OTP' | 'REGISTER_PASSWORD'
 
 export default function LoginPage() {
   const [step, setStep] = useState<Step>('EMAIL')
@@ -40,7 +40,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [studentId, setStudentId] = useState('')
   const [otp, setOtp] = useState('')
 
   // Wipe leftover localstorage from old architectural setup
@@ -83,33 +82,12 @@ export default function LoginPage() {
           setStep('OTP')
         }
       } else {
-        // Required Student ID step before OTP is sent
-        setStep('STUDENT_ID')
+        // Send OTP and move to OTP step
+        await apiClient.post('/auth/request-otp', { email })
+        setStep('OTP')
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Connection error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleCheckStudentId = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    
-    // Strict mock regex: 4 digits, a dash, and 5 digits
-    const studentIdRegex = /^\d{4}-\d{5}$/;
-    if (!studentIdRegex.test(studentId)) {
-      setError('Invalid format. Please use: 2023-12345')
-      return;
-    }
-
-    setLoading(true)
-    try {
-      await apiClient.post('/auth/request-otp', { email })
-      setStep('OTP')
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to request OTP')
     } finally {
       setLoading(false)
     }
@@ -164,7 +142,7 @@ export default function LoginPage() {
 
     setLoading(true)
     try {
-      const { data } = await apiClient.post('/auth/register', { email, password, role: 'student', studentId })
+      const { data } = await apiClient.post('/auth/register', { email, password, role: 'student' })
       router.push(getRedirectPath(data.user.role))
     } catch (err: any) {
       setError(err.response?.data?.message || 'Registration failed')
@@ -244,45 +222,6 @@ export default function LoginPage() {
                 <p className="text-xs text-gray-400 mt-8">
                   We&apos;ll create an account if you don&apos;t have one yet.
                 </p>
-              </motion.div>
-            )}
-
-            {/* STEP: STUDENT ID */}
-            {step === 'STUDENT_ID' && (
-              <motion.div
-                key="student_id"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.3 }}
-                className="text-center"
-              >
-                <div className="w-16 h-16 bg-gray-100 rounded-2xl mx-auto mb-6 flex items-center justify-center">
-                  <span className="text-2xl">🎓</span>
-                </div>
-                <h1 className="text-2xl font-bold mb-2">Are you a student?</h1>
-                <p className="text-sm text-gray-500 mb-8 font-medium">Please enter your school ID for verification.</p>
-                
-                <form onSubmit={handleCheckStudentId} className="flex flex-col gap-4">
-                  <Input
-                    type="text"
-                    placeholder="E.g. 2023-12345"
-                    value={studentId}
-                    onChange={(e) => setStudentId(e.target.value)}
-                    className="h-14 rounded-2xl bg-gray-50/50 border-gray-200 text-lg px-4 font-mono text-center tracking-wider"
-                    required
-                    autoFocus
-                  />
-                  <ErrorAlert message={error} />
-                  
-                  <Button
-                    type="submit"
-                    className="h-14 rounded-2xl w-full bg-black text-white text-lg font-semibold hover:bg-gray-800 transition-all mt-2"
-                    disabled={loading || !studentId}
-                  >
-                    {loading ? <Loader2 className="animate-spin w-5 h-5" /> : 'Verify Identity'}
-                  </Button>
-                </form>
               </motion.div>
             )}
 

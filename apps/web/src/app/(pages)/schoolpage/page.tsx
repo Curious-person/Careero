@@ -1523,7 +1523,7 @@ function StudentProfileView({
                 <CheckCircle className="h-4 w-4 text-green-700" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium">Completed "Networking Fundamentals Challenge"</p>
+                <p className="text-sm font-medium">Completed &ldquo;Networking Fundamentals Challenge&rdquo;</p>
                 <p className="text-xs text-muted-foreground">Earned 150 points · 2 days ago</p>
               </div>
             </div>
@@ -1533,7 +1533,7 @@ function StudentProfileView({
                 <Trophy className="h-4 w-4 text-blue-700" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium">Top performer in "Business Analytics Bootcamp"</p>
+                <p className="text-sm font-medium">Top performer in &ldquo;Business Analytics Bootcamp&rdquo;</p>
                 <p className="text-xs text-muted-foreground">Earned 200 points · 1 week ago</p>
               </div>
             </div>
@@ -1543,7 +1543,7 @@ function StudentProfileView({
                 <Clock className="h-4 w-4 text-yellow-700" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium">Enrolled in "Cybersecurity Awareness Task"</p>
+                <p className="text-sm font-medium">Enrolled in &ldquo;Cybersecurity Awareness Task&rdquo;</p>
                 <p className="text-xs text-muted-foreground">Due Jan 31, 2025</p>
               </div>
             </div>

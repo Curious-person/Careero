@@ -142,8 +142,9 @@ export default function LoginPage() {
 
     setLoading(true)
     try {
-      const { data } = await apiClient.post('/auth/register', { email, password, role: 'student' })
-      router.push(getRedirectPath(data.user.role))
+      await apiClient.post('/auth/register', { email, password, role: 'student' })
+      // Instantly inject the user into the Academic Sync & Evidence Upload Flow
+      router.push('/dashboard/student/onboarding')
     } catch (err: any) {
       setError(err.response?.data?.message || 'Registration failed')
     } finally {

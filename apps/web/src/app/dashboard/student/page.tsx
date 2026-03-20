@@ -1,11 +1,20 @@
+"use client"
+
 import DashboardLayout from "@/components/layouts/DashboardLayout"
+import { LayoutDashboard, Settings } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowUpRight, Plus, TrendingUp, Users, FileText, CheckCircle } from "lucide-react"
 
 export default function DashboardPage() {
+  const studentNavigation = [
+    { name: "Dashboard", href: "/dashboard/student", icon: LayoutDashboard },
+    { name: "My Profile", href: "/dashboard/student/profile", icon: Users },
+    { name: "Settings", href: "/dashboard/student/settings", icon: Settings },
+  ]
+
   return (
-    <DashboardLayout>
+    <DashboardLayout navigation={studentNavigation}>
       <div className="space-y-6">
         {/* Page header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

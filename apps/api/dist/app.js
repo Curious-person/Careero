@@ -9,10 +9,10 @@ const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const v1_1 = __importDefault(require("./routes/v1"));
 const error_middleware_1 = require("./middlewares/error.middleware");
 const app = (0, express_1.default)();
-// parse json request body
-app.use(express_1.default.json());
+// parse json request body with increased limit for Base64 OCR uploads
+app.use(express_1.default.json({ limit: '50mb' }));
 // parse urlencoded request body
-app.use(express_1.default.urlencoded({ extended: true }));
+app.use(express_1.default.urlencoded({ extended: true, limit: '50mb' }));
 // enable cookies
 app.use((0, cookie_parser_1.default)());
 // enable cors for cookies

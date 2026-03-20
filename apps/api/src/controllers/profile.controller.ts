@@ -157,7 +157,7 @@ export const submitOnboarding = async (
     const { basicInfo, academicRecords, certifications } = req.body;
 
     // Always re-derive on the backend — never trust calculated values from client
-    const skillTags = deriveSkillTags(academicRecords);
+    const skillTags = deriveSkillTags(academicRecords, certifications || []);
     const calculatedPoints = calculatePoints(academicRecords, certifications || []);
 
     const profile = await StudentProfile.create({
@@ -204,9 +204,9 @@ export const getProfile = async (
     }
 
     // ── Self-Healing Data Migration ──
-    // If a student's profile was created before the "pointsBreakdown" feature,
-    // we recalculate the exact breakdown dynamically and inject it.
-    if (!profile.pointsBreakdown || (profile.pointsBreakdown.academic === 0 && profile.pointsBreakdown.cert === 0 && profile.totalPoints > 0)) {
+    // If a student's profile is missing detailed breakdowns or the new unweighted raw payloads,
+    // we powerfully recalculate the exact breakdown dynamically and inject it.
+    if (!profile.pointsBreakdown || typeof profile.pointsBreakdown.hardSkills === 'undefined') {
       const calculatedPoints = calculatePoints(profile.academicRecords, profile.certifications || []);
       profile.pointsBreakdown = calculatedPoints.breakdown;
       profile.totalPoints = calculatedPoints.total; // Synchronize just in case

@@ -1,4 +1,4 @@
-// File: d:\pathly\Pathly\apps\web\src\app\(pages)\landing\page.tsx
+// File: D:\projects\nu_space\Pathly\apps\web\src\app\(pages)\landing\page.tsx
 import * as entry from '../../../../../src/app/(pages)/landing/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

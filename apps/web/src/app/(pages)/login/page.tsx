@@ -53,10 +53,10 @@ export default function LoginPage() {
   // Scalable Route Mapper
   const getRedirectPath = (role: string) => {
     switch(role) {
-      case 'student': return '/dashboard';
-      case 'school': return '/schoolpage';
-      case 'company': return '/companypage'; // Assuming you build this next!
-      default: return '/dashboard';
+      case 'student': return '/dashboard/student';
+      case 'school': return '/dashboard/school';
+      case 'company': return '/dashboard/company/dashboard';
+      default: return '/dashboard/student';
     }
   }
 

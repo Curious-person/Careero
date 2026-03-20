@@ -52,7 +52,7 @@ export const loginUser = async (email: string, passwordPlain: string) => {
   if (!isMatch) throw new Error('Invalid credentials');
 
   return {
-    jwtToken: generateToken(user.id),
+    jwtToken: generateToken(user.id, user.role),
     deviceToken: generateToken(`${user.id}-device-token`), // unique footprint
     user: {
       id: user.id,
@@ -78,7 +78,7 @@ export const registerUser = async (email: string, passwordPlain: string, role: s
   });
 
   return {
-    jwtToken: generateToken(user.id),
+    jwtToken: generateToken(user.id, user.role),
     deviceToken: generateToken(`${user.id}-device-token`),
     user: {
       id: user.id,
@@ -88,6 +88,6 @@ export const registerUser = async (email: string, passwordPlain: string, role: s
   };
 };
 
-const generateToken = (id: string) => {
-  return jwt.sign({ id }, env.JWT_SECRET as string, { expiresIn: '30d' });
+const generateToken = (id: string, role?: string) => {
+  return jwt.sign({ id, role }, env.JWT_SECRET as string, { expiresIn: '30d' });
 };

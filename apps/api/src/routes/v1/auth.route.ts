@@ -10,5 +10,6 @@ router.post('/request-otp', otpLimiter, validateEmail, authController.requestOtp
 router.post('/verify-otp', otpLimiter, validateEmail, validateOtpFormat, authController.verifyOtp);
 router.post('/register', validateEmail, validatePassword, authController.register);
 router.post('/login', loginLimiter, validateEmail, authController.login);
+router.post('/logout', authController.logout);
 
 export default router;

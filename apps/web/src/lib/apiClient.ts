@@ -16,7 +16,16 @@ export const apiClient = axios.create({
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    // We can centrally handle 401 Unauthorized or 403 Forbidden redirects here in the future
     return Promise.reject(error);
   }
 );
+
+// Global helper to instantly kill sessions securely
+export const logoutSession = async () => {
+  try {
+    await apiClient.post('/auth/logout');
+    window.location.href = '/login';
+  } catch (error) {
+    console.error('Logout failed:', error);
+  }
+};

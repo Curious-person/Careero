@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.login = exports.register = exports.verifyOtp = exports.requestOtp = exports.checkEmail = void 0;
+exports.logout = exports.login = exports.register = exports.verifyOtp = exports.requestOtp = exports.checkEmail = void 0;
 const authService = __importStar(require("../services/auth.service"));
 const setAuthCookies = (res, jwtToken, deviceToken) => {
     res.cookie('jwt', jwtToken, {
@@ -112,3 +112,14 @@ const login = async (req, res, next) => {
     }
 };
 exports.login = login;
+const logout = async (req, res, next) => {
+    try {
+        res.clearCookie('jwt', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' });
+        res.clearCookie('deviceToken', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' });
+        res.json({ message: 'Logged out successfully' });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.logout = logout;

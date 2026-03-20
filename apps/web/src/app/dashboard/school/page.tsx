@@ -7,7 +7,7 @@ import { useState } from "react"
 import { StatCard } from "./_components/shared"
 import type { Student } from "./_data/school-data"
 import { ACCUMULATIONS, COMPANIES, COURSES, PENDING_STUDENTS } from "./_data/school-data"
-import { AccumulationsPage } from "./accumulations/page"
+import AccumulationsPage from "./accumulations/AccumulationsPage"
 import CompanyPage from "./company/page"
 import StudentsPage from "./students/page"
 

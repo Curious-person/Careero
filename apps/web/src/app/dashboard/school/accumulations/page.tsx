@@ -241,7 +241,7 @@ function CreateAccumulationModal({ onClose, onSubmit }: { onClose: () => void; o
   )
 }
 
-export function AccumulationsPage({
+function AccumulationsPage({
   selectedAccum,
   selectedPerson,
   selectedStudent,

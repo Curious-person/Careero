@@ -1,22 +1,21 @@
 "use client"
 
-import { useState } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import {
-  LayoutDashboard,
-  Settings,
-  Users,
-  FileText,
-  Menu,
-  X,
-  LogOut,
-  Bell,
-  ChevronLeft,
-  ChevronRight
-} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { logoutSession } from "@/lib/apiClient"
+import {
+  Bell,
+  ChevronLeft,
+  ChevronRight,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Settings,
+  Users,
+  X
+} from "lucide-react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { useState } from "react"
 
 interface NavItem {
   name: string

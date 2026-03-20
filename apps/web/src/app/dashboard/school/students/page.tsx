@@ -1,1 +1,3 @@
-export { default } from "./StudentsPage"
+export default function StudentsPageRoute() {
+  return null
+}

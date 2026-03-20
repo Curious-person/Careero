@@ -16,6 +16,7 @@ import {
   ChevronRight
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { logoutSession } from "@/lib/apiClient"
 
 interface NavItem {
   name: string
@@ -36,9 +37,9 @@ export default function DashboardLayout({ children, navigation: navProp }: Dashb
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const defaultNavigation: NavItem[] = [
-    { name: "Dashboard", href: "/company/dashboard", icon: LayoutDashboard },
-    { name: "Team", href: "/company/team", icon: Users },
-    { name: "Settings", href: "/company/settings", icon: Settings },
+    { name: "Dashboard", href: "/dashboard/company/dashboard", icon: LayoutDashboard },
+    { name: "Team", href: "/dashboard/company/team", icon: Users },
+    { name: "Settings", href: "/dashboard/company/settings", icon: Settings },
   ]
 
   const navigation = navProp ?? defaultNavigation
@@ -134,12 +135,10 @@ export default function DashboardLayout({ children, navigation: navProp }: Dashb
             <Button
               variant="outline"
               className={`w-full justify-start gap-2 ${sidebarCollapsed ? "justify-center px-2" : ""}`}
-              asChild
+              onClick={logoutSession}
             >
-              <Link href="/">
-                <LogOut className="h-4 w-4 flex-shrink-0" />
-                {!sidebarCollapsed && <span>Sign Out</span>}
-              </Link>
+              <LogOut className="h-4 w-4 flex-shrink-0" />
+              {!sidebarCollapsed && <span>Sign Out</span>}
             </Button>
           </div>
         </div>

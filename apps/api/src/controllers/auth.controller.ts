@@ -80,3 +80,13 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     next(error);
   }
 };
+
+export const logout = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.clearCookie('jwt', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' });
+    res.clearCookie('deviceToken', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' });
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    next(error);
+  }
+};

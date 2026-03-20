@@ -7,6 +7,7 @@ import { apiClient } from '@/lib/apiClient'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import Image from 'next/image'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Loader2, UploadCloud, CheckCircle2, FileText, Sparkles, GraduationCap, Eye } from 'lucide-react'
 
@@ -243,8 +244,9 @@ export default function OnboardingFlow() {
 
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-1">
-                      <label className="text-sm font-medium">Course</label>
+                      <label htmlFor="course" className="text-sm font-medium">Course</label>
                       <select 
+                        id="course"
                         value={course}
                         onChange={e => setCourse(e.target.value)}
                         className="flex h-12 w-full rounded-xl border border-input bg-gray-50/50 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
@@ -255,8 +257,9 @@ export default function OnboardingFlow() {
                       </select>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-sm font-medium">Year Level</label>
+                      <label htmlFor="yearLevel" className="text-sm font-medium">Year Level</label>
                       <select 
+                        id="yearLevel"
                         value={yearLevel}
                         onChange={e => setYearLevel(e.target.value)}
                         className="flex h-12 w-full rounded-xl border border-input bg-gray-50/50 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -268,8 +271,9 @@ export default function OnboardingFlow() {
                       </select>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-sm font-medium">Term</label>
+                      <label htmlFor="term" className="text-sm font-medium">Term</label>
                       <select 
+                        id="term"
                         value={term}
                         onChange={e => setTerm(e.target.value)}
                         className="flex h-12 w-full rounded-xl border border-input bg-gray-50/50 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -377,6 +381,7 @@ export default function OnboardingFlow() {
                     onChange={handleFileUpload}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
                     disabled={isUploading}
+                    aria-label="Upload certificate images"
                   />
                   {isUploading ? (
                     <div className="py-4">
@@ -407,7 +412,7 @@ export default function OnboardingFlow() {
                               </Button>
                             </DialogTrigger>
                             <DialogContent className="sm:max-w-xl p-0 overflow-hidden bg-transparent border-0 rounded-[24px]">
-                              <img src={cert.fileData} alt={cert.fileName} className="w-full h-auto object-contain bg-black/90 backdrop-blur-xl" />
+                              <Image src={cert.fileData} alt={cert.fileName} width={800} height={600} className="w-full h-auto object-contain bg-black/90 backdrop-blur-xl" unoptimized />
                             </DialogContent>
                           </Dialog>
                         </div>

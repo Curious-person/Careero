@@ -241,7 +241,7 @@ function CreateAccumulationModal({ onClose, onSubmit }: { onClose: () => void; o
   )
 }
 
-export function AccumulationsPage({
+export default function AccumulationsPage({
   selectedAccum,
   selectedPerson,
   selectedStudent,
@@ -747,8 +747,4 @@ export function AccumulationsPage({
       </div>
     </div>
   )
-}
-
-export default function AccumulationsPageRoute() {
-  return null
 }

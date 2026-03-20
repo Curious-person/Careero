@@ -74,6 +74,7 @@ export default function DashboardLayout({ children, navigation: navProp }: Dashb
               {/* Collapse toggle - desktop only */}
               <button
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 className="hidden lg:flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
                 {sidebarCollapsed ? (
@@ -85,6 +86,7 @@ export default function DashboardLayout({ children, navigation: navProp }: Dashb
               {/* Close button - mobile only */}
               <button
                 onClick={() => setSidebarOpen(false)}
+                aria-label="Close sidebar"
                 className="lg:hidden text-muted-foreground hover:text-foreground"
               >
                 <X className="h-5 w-5" />

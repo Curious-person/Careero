@@ -40,7 +40,7 @@ export default function SchoolPage() {
           selectedStudent={selectedStudent}
           onSelectCourse={setSelectedCourse}
           onSelectStudent={setSelectedStudent}
-          onSelectAccum={(accum) => { setSelectedAccum(accum); setSelectedStudent(null); setSelectedCourse(null); setView("accumulations") }}
+          onSelectAccum={(accum: typeof ACCUMULATIONS[0]) => { setSelectedAccum(accum); setSelectedStudent(null); setSelectedCourse(null); setView("accumulations") }}
           onBack={() => selectedStudent ? setSelectedStudent(null) : setSelectedCourse(null)}
         />
       )}
@@ -48,7 +48,7 @@ export default function SchoolPage() {
         <CompanyPage
           selectedCompany={selectedCompany}
           onSelectCompany={setSelectedCompany}
-          onSelectStudent={(student, course) => { setSelectedCourse(course); setSelectedStudent(student); setSelectedCompany(null); setView("students") }}
+          onSelectStudent={(student: Student, course: typeof COURSES[0]) => { setSelectedCourse(course); setSelectedStudent(student); setSelectedCompany(null); setView("students") }}
           onBack={() => setSelectedCompany(null)}
         />
       )}
@@ -59,7 +59,7 @@ export default function SchoolPage() {
           selectedStudent={selectedStudent}
           onSelectAccum={setSelectedAccum}
           onSelectPerson={setSelectedPerson}
-          onSelectStudent={(student, course) => { setSelectedCourse(course); setSelectedStudent(student); setView("students") }}
+          onSelectStudent={(student: Student, course: typeof COURSES[0]) => { setSelectedCourse(course); setSelectedStudent(student); setView("students") }}
           onBack={() => {
             if (selectedPerson) { setSelectedPerson(null) }
             else if (selectedStudent) { setSelectedStudent(null) }

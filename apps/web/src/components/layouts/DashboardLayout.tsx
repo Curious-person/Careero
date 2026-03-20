@@ -36,10 +36,9 @@ export default function DashboardLayout({ children, navigation: navProp }: Dashb
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const defaultNavigation: NavItem[] = [
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Projects", href: "/dashboard/projects", icon: FileText },
-    { name: "Team", href: "/dashboard/team", icon: Users },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings },
+    { name: "Dashboard", href: "/company/dashboard", icon: LayoutDashboard },
+    { name: "Team", href: "/company/team", icon: Users },
+    { name: "Settings", href: "/company/settings", icon: Settings },
   ]
 
   const navigation = navProp ?? defaultNavigation
@@ -104,15 +103,16 @@ export default function DashboardLayout({ children, navigation: navProp }: Dashb
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }
               `
+              // Only show icon when sidebarCollapsed
               return item.onClick ? (
                 <button type="button" key={item.name} onClick={item.onClick} className={`w-full ${className}`}>
                   <item.icon className="h-5 w-5" />
-                  {item.name}
+                  {!sidebarCollapsed && item.name}
                 </button>
               ) : (
                 <Link key={item.name} href={item.href!} className={className}>
                   <item.icon className="h-5 w-5" />
-                  {item.name}
+                  {!sidebarCollapsed && item.name}
                 </Link>
               )
             })}

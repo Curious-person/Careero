@@ -1,13 +1,13 @@
 "use client"
 
-import { useState } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { Eye, EyeOff, Mail, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Eye, EyeOff, Lock, Mail, User } from "lucide-react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -15,6 +15,13 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showDevMenu, setShowDevMenu] = useState(false)
+
+  const devUsers = [
+    { label: "Student", path: "/dashboard/student" },
+    { label: "School", path: "/dashboard/school" },
+    { label: "Client", path: "/dashboard/client" },
+  ]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -101,6 +108,36 @@ export default function LoginPage() {
           </div>
         </CardFooter>
       </Card>
+      {process.env.NODE_ENV === "development" && (
+        <div className="fixed bottom-4 right-4 flex items-center gap-2">
+          <div
+            className={`flex items-center gap-1 overflow-hidden transition-all duration-300 ease-in-out ${
+              showDevMenu ? "max-w-xs opacity-100" : "max-w-0 opacity-0"
+            }`}
+          >
+            {devUsers.map(({ label, path }) => (
+              <Button
+                key={label}
+                size="sm"
+                variant="outline"
+                className="whitespace-nowrap shadow-md"
+                onClick={() => router.push(path)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+          <Button
+            size="icon"
+            variant="secondary"
+            className="shadow-md shrink-0"
+            onClick={() => setShowDevMenu(!showDevMenu)}
+            title="Dev: Switch user type"
+          >
+            <User className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

@@ -10,6 +10,7 @@ export interface ICertification {
   fileName: string;
   fileData?: string; // Optional raw base64 or S3 URL
   ocrText: string;
+  classification?: any; // Native AI Xenova object { labels: [], scores: [] }
   verified: boolean;
   awardedPoints: number;
 }
@@ -30,10 +31,20 @@ export interface IStudentProfile extends Document {
   skillTags: string[];
   certifications: ICertification[];
   totalPoints: number;
-  pointsBreakdown: {
+  pointsBreakdown?: {
     academic: number;
     cert: number;
+    accumulations: number;
     achievement: number;
+    hardSkills: number;
+    softSkills: number;
+    
+    rawAcademic?: number;
+    rawCert?: number;
+    rawAccumulations?: number;
+    rawAchievement?: number;
+    rawHardSkills?: number;
+    rawSoftSkills?: number;
   };
   status: 'PENDING_ONBOARDING' | 'UNDER_EVALUATION' | 'VERIFIED' | 'REJECTED';
 }
@@ -48,6 +59,7 @@ const CertificationSchema = new Schema<ICertification>({
   fileName: { type: String, required: true },
   fileData: { type: String },
   ocrText: { type: String },
+  classification: { type: Schema.Types.Mixed },
   verified: { type: Boolean, default: false },
   awardedPoints: { type: Number, default: 0 },
 });
@@ -72,7 +84,17 @@ const StudentProfileSchema = new Schema<IStudentProfile>(
     pointsBreakdown: {
       academic: { type: Number, default: 0 },
       cert: { type: Number, default: 0 },
-      achievement: { type: Number, default: 0 }
+      accumulations: { type: Number, default: 0 },
+      achievement: { type: Number, default: 0 },
+      hardSkills: { type: Number, default: 0 },
+      softSkills: { type: Number, default: 0 },
+
+      rawAcademic: { type: Number, default: 0 },
+      rawCert: { type: Number, default: 0 },
+      rawAccumulations: { type: Number, default: 0 },
+      rawAchievement: { type: Number, default: 0 },
+      rawHardSkills: { type: Number, default: 0 },
+      rawSoftSkills: { type: Number, default: 0 },
     },
     status: {
       type: String,

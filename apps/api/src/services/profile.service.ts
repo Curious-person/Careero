@@ -51,14 +51,29 @@ export const generateMockAcademicData = (courseKey: string): IAcademicRecord[] =
 
 /**
  * Maps incoming subject objects to flat skill tags if the student scored <= 2.0
+ * Additionally extracts high-confidence AI labels parsed from local Xenova classification instances.
  */
-export const deriveSkillTags = (records: IAcademicRecord[]): string[] => {
+export const deriveSkillTags = (records: IAcademicRecord[], certs: any[] = []): string[] => {
   const tags = new Set<string>();
   
+  // 1. Academic Hardcoding
   records.forEach(record => {
     if (record.grade <= 2.0) {
       const associatedTags = SKILL_TAG_MAP[record.subject] || [];
       associatedTags.forEach(tag => tags.add(tag));
+    }
+  });
+
+  // 2. AI Label Extraction (Xenova Zero-Shot)
+  certs.forEach(cert => {
+    if (cert.classification && cert.classification.labels && cert.classification.scores) {
+      const { labels, scores } = cert.classification;
+      for (let i = 0; i < labels.length; i++) {
+        // Only accept if the transformer pipeline is somewhat confident the file proves this skill
+        if (scores[i] > 0.35) {
+          tags.add(labels[i]);
+        }
+      }
     }
   });
 
@@ -75,55 +90,71 @@ const convertGradeToScore = (grade: number): number => {
  * Advanced Evaluation Engine mapping Academic Weights (40%), Certifications (30%), and Achievements (20%)
  */
 export const calculatePoints = (records: IAcademicRecord[], certs: ICertification[] = []) => {
-  // --- 1. ACADEMIC POINTS (40%) ---
-  let academicScore = 0;
-  if (records.length > 0) {
-    const totalAcademicScore = records.reduce((sum, record) => sum + convertGradeToScore(record.grade), 0);
-    academicScore = totalAcademicScore / records.length;
-  }
-
-  // --- 2. CERTIFICATION & ACHIEVEMENT POINTS ---
-  let certScore = 0;
-  let achievementScore = 0;
-
-  certs.forEach(cert => {
-    const text = cert.ocrText.toLowerCase();
-
-    // Check if it's an achievement or a certification based on keywords
-    if (text.includes("champion") || text.includes("1st place") || text.includes("participant")) {
-      // Achievement Logic
-      if (text.includes("champion")) achievementScore += 100;
-      else if (text.includes("1st place")) achievementScore += 90;
-      else if (text.includes("participant")) achievementScore += 40;
-    } else {
-      // Certification Logic
-      // Base = 50, Confidence = 0.9, Level = 1.2
-      // In reality these come from the zero-shot classifier output!
-      // Here we parse pre-populated values if available on the cert object, or use fallbacks
-      const basePoints = 50;
-      const confidence = 0.9;
-      const level = 1.2;
-      certScore += (basePoints * confidence * level);
+  // --- 1. ACADEMIC POINTS ---
+  let totalValid = 0;
+  let count = 0;
+  records.forEach(record => {
+    const score = convertGradeToScore(record.grade);
+    if (score > 0) { // Only count passing grades
+      totalValid += score;
+      count++;
     }
   });
 
-  // Cap them if necessary
-  certScore = Math.min(certScore, 100); 
-  achievementScore = Math.min(achievementScore, 100);
-
-  // --- FINAL WEIGHTED CALCULATION ---
-  // (Academic * 0.4) + (Cert * 0.3) + (Achievement * 0.2)
-  const weightedAcademic = academicScore * 0.4;
-  const weightedCert = certScore * 0.3;
-  const weightedAchievement = achievementScore * 0.2;
-  // + Bonus (10%) (omitted or flat if desired)
+  // Calculate raw scores correctly out of 100
+  // Note: convertGradeToScore already returns up to 100, so taking the average directly gives the correct score out of 100
+  const academicScore = count > 0 ? (totalValid / count) : 0;
   
+  // --- 2. CERTIFICATION & ACHIEVEMENT POINTS ---
+  const certScore = Math.min(certs.length * 20, 100);
+  const achievementScore = 0; // Fixed zero for now since model doesn't track Extracurricular metrics robustly yet
+
+  // Dynamically compile derived skills from academic overlaps and AI Xenova strings
+  const skillTags = deriveSkillTags(records, certs);
+  const isSoftSkill = (tag: string) => ['leadership', 'agile', 'scrum', 'communication', 'teamwork', 'adaptability'].includes(tag.toLowerCase());
+  const hardSkillsCount = skillTags.filter(t => !isSoftSkill(t)).length;
+  const softSkillsCount = skillTags.filter(t => isSoftSkill(t)).length;
+
+  const hardSkillsRaw = Math.min(hardSkillsCount * 15, 100);
+  const softSkillsRaw = Math.min(softSkillsCount * 25, 100);
+
+  // New Fractional Weightings: Max sum equals 100 points
+  // Academics: 30%
+  // Certifications: 20%
+  // Accumulations: 10% (Locked)
+  // Achievements: 10%
+  // Hard Skills: 20%
+  // Soft Skills: 10%
+  const weightedAcademic = academicScore * 0.3;
+  const weightedCert = certScore * 0.2;
+  const weightedAccumulations = 0;
+  const weightedAchievement = achievementScore * 0.1;
+  const weightedHardSkills = hardSkillsRaw * 0.2;
+  const weightedSoftSkills = softSkillsRaw * 0.1;
+
+  const bAcademic = Math.round(weightedAcademic);
+  const bCert = Math.round(weightedCert);
+  const bAccum = Math.round(weightedAccumulations);
+  const bAchieve = Math.round(weightedAchievement);
+  const bHard = Math.round(weightedHardSkills);
+  const bSoft = Math.round(weightedSoftSkills);
+
   return {
-    total: Math.round(weightedAcademic + weightedCert + weightedAchievement),
+    total: bAcademic + bCert + bAccum + bAchieve + bHard + bSoft,
     breakdown: {
-      academic: Math.round(weightedAcademic),
-      cert: Math.round(weightedCert),
-      achievement: Math.round(weightedAchievement)
+      academic: bAcademic,
+      cert: bCert,
+      accumulations: bAccum,
+      achievement: bAchieve,
+      hardSkills: bHard,
+      softSkills: bSoft,
+      rawAcademic: Math.round(academicScore),
+      rawCert: Math.round(certScore),
+      rawAccumulations: 0,
+      rawAchievement: Math.round(achievementScore),
+      rawHardSkills: Math.round(hardSkillsRaw),
+      rawSoftSkills: Math.round(softSkillsRaw)
     }
   };
 };
+

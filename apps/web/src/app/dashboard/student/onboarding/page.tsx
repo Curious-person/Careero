@@ -38,7 +38,7 @@ export default function OnboardingFlow() {
   const [academicData, setAcademicData] = useState<MockAcademicData | null>(null)
 
   // Document Uploads
-  const [certificates, setCertificates] = useState<{ fileName: string, fileData: string, ocrText: string }[]>([])
+  const [certificates, setCertificates] = useState<{ fileName: string, fileData: string, ocrText: string, classification?: any }[]>([])
   const [isUploading, setIsUploading] = useState(false)
 
   // Step 1: Submit Basic Info -> Fetch Mocks
@@ -75,7 +75,7 @@ export default function OnboardingFlow() {
     
     // Process all files in parallel
     const uploadPromises = Array.from(files).map(file => {
-      return new Promise<{ fileName: string, fileData: string, ocrText: string }>((resolve, reject) => {
+      return new Promise<{ fileName: string, fileData: string, ocrText: string, classification?: any }>((resolve, reject) => {
         const reader = new FileReader()
         reader.readAsDataURL(file)
         reader.onload = async () => {
@@ -83,7 +83,7 @@ export default function OnboardingFlow() {
             const imageBase64 = reader.result as string
             const { data } = await apiClient.post('/profile/ocr-upload', { imageBase64 })
             // Pre-bundling fileData mapping securely to be pushed up into the Profile schema logic!
-            resolve({ fileName: file.name, fileData: imageBase64, ocrText: data.ocrText })
+            resolve({ fileName: file.name, fileData: imageBase64, ocrText: data.ocrText, classification: data.classification })
           } catch (err) {
             console.error('OCR Upload Error', err)
             // Resolve empty text to not block the rest of the queue

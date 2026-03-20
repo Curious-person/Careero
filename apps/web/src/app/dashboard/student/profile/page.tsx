@@ -75,17 +75,55 @@ export default function StudentProfilePage() {
 
   const isVerified = profile.status === 'VERIFIED'
 
-  // Pre-calculate Radar Values dynamically based on skill tags
-  const ALL_SKILLS = ['networking', 'cybersec', 'web dev', 'frontend', 'backend', 'database-design', 'cloud', 'agile']
-  const radarData = ALL_SKILLS.map(skill => {
-    // If the student has the tag, they score 90-100, otherwise 20-30 baseline
-    const hasSkill = profile.skillTags.includes(skill)
-    return {
-      subject: skill.toUpperCase(),
-      A: hasSkill ? Math.floor(Math.random() * (100 - 80 + 1) + 80) : Math.floor(Math.random() * (40 - 20 + 1) + 20),
-      fullMark: 100,
-    }
-  })
+  // ── Unified 6-Node Hexagon Graph ──
+  // Based STRICTLY on the actual exact points from the Profile Calculation.
+
+  // Precisely map the exact weighted contribution points.
+  const academicScore = profile.pointsBreakdown?.academic || 0;
+  const certScore = profile.pointsBreakdown?.cert || 0;
+  const extraScore = profile.pointsBreakdown?.achievement || 0;
+  const accumulationsScore = 0; // Currently 0, locked behind Company Challenges
+  
+  // Deriving Hard Skills vs Soft Skills from Tags explicitly for visual mapping context
+  const isSoftSkill = (tag: string) => ['leadership', 'agile', 'scrum', 'communication', 'teamwork'].includes(tag.toLowerCase());
+  const hardSkillsCount = profile.skillTags.filter((t: string) => !isSoftSkill(t)).length;
+  const softSkillsCount = profile.skillTags.filter((t: string) => isSoftSkill(t)).length;
+  
+  const hardSkillsScore = profile.pointsBreakdown?.hardSkills || 0; 
+  const softSkillsScore = profile.pointsBreakdown?.softSkills || 0; 
+
+  const radarData = [
+    { 
+      subject: 'ACADEMICS', 
+      score: academicScore, 
+      desc: `Exact Grade Points (Max 40): ${academicScore} PTS from synced records.` 
+    },
+    { 
+      subject: 'CERTIFICATIONS', 
+      score: certScore, 
+      desc: `Exact Certificate Points (Max 30): ${certScore} PTS derived from completed AI validations.` 
+    },
+    { 
+      subject: 'ACCUMULATIONS', 
+      score: accumulationsScore, 
+      desc: `Current Value: ${accumulationsScore} PTS. Complete institutional verification to unlock Company Challenges.` 
+    },
+    { 
+      subject: 'EXTRACURRICULAR', 
+      score: extraScore, 
+      desc: `Exact Extracurricular Points (Max 20): ${extraScore} PTS.` 
+    },
+    { 
+      subject: 'HARD SKILLS', 
+      score: hardSkillsScore, 
+      desc: `Exact Technical Points (Max 20): ${hardSkillsScore} PTS mapped from ${hardSkillsCount} explicit technical keywords.` 
+    },
+    { 
+      subject: 'SOFT SKILLS', 
+      score: softSkillsScore, 
+      desc: `Exact Interpersonal Points (Max 10): ${softSkillsScore} PTS mapped from ${softSkillsCount} abstract behavioural tags.` 
+    },
+  ];
 
   return (
     <DashboardLayout navigation={studentNavigation}>
@@ -164,14 +202,26 @@ export default function StudentProfilePage() {
                       <span className="text-gray-500 font-medium">Valid Certifications</span>
                       <span className="font-bold">{profile.pointsBreakdown?.cert || 0}</span>
                     </div>
-                    <div className="flex justify-between items-center text-sm pb-1">
+                    <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
+                      <span className="text-gray-500 font-medium">Accumulations</span>
+                      <span className="font-bold">{profile.pointsBreakdown?.accumulations || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
                       <span className="text-gray-500 font-medium">Extracurricular</span>
                       <span className="font-bold">{profile.pointsBreakdown?.achievement || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
+                      <span className="text-gray-500 font-medium">Hard Skills</span>
+                      <span className="font-bold">{profile.pointsBreakdown?.hardSkills || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm pb-1">
+                      <span className="text-gray-500 font-medium">Soft Skills</span>
+                      <span className="font-bold">{profile.pointsBreakdown?.softSkills || 0}</span>
                     </div>
                   </div>
                   <div className="mt-4 pt-4 border-t border-gray-100 bg-gray-50/50 -mx-5 -mb-5 p-4 rounded-b-[24px]">
                     <p className="text-xs text-center text-gray-400 font-medium leading-relaxed">
-                      Math: (Academics * 0.4) + (Certs * 0.3) + (Achievements * 0.2)
+                      Math: (Acad * 30%) + (Cert * 20%) + (Hard * 20%) + (Soft * 10%) + (Extra * 10%) + (Accum * 10%)
                     </p>
                   </div>
                 </PopoverContent>
@@ -189,25 +239,22 @@ export default function StudentProfilePage() {
               <CardHeader className="bg-gray-50/50">
                 <CardTitle className="flex items-center gap-2 text-xl">
                   <Network className="w-5 h-5 text-gray-400" />
-                  Calculated Skill Tree
+                  Calculated Skill Graph
                 </CardTitle>
-                <CardDescription>Visual map of your mapped academic and certified tags.</CardDescription>
+                <CardDescription>Visual map of your mapped academic and AI-certified tags.</CardDescription>
               </CardHeader>
-              <CardContent className="p-4 md:p-8">
-                {profile.skillTags.length === 0 ? (
-                  <div className="h-64 w-full bg-gray-50 border border-gray-100 rounded-[24px] flex items-center justify-center">
-                    <p className="text-gray-400 font-medium text-sm">No specific skill tags derived yet.</p>
-                  </div>
-                ) : (
-                  <div className="h-72 lg:h-80 w-full relative">
+              <CardContent className="p-0">
+                <div className="flex flex-col md:flex-row h-auto md:h-80">
+                  {/* Left: Recharts SVG Hexagon */}
+                  <div className="w-full md:w-3/5 h-72 md:h-full p-4 relative">
                     <ResponsiveContainer width="100%" height="100%">
                       <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
                         <PolarGrid stroke="#E5E7EB" />
                         <PolarAngleAxis dataKey="subject" tick={{ fill: '#6B7280', fontSize: 10, fontWeight: 700 }} />
-                        <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                        <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={false} axisLine={false} />
                         <Radar
                           name="Competency"
-                          dataKey="A"
+                          dataKey="score"
                           stroke="#007AFF"
                           fill="#007AFF"
                           fillOpacity={0.15}
@@ -217,7 +264,24 @@ export default function StudentProfilePage() {
                       </RadarChart>
                     </ResponsiveContainer>
                   </div>
-                )}
+                  
+                  {/* Right: Scrollable Breakdown Panel spanning full height */}
+                  <div className="w-full md:w-2/5 h-64 md:h-full border-t md:border-t-0 md:border-l border-gray-100 bg-gray-50/30 overflow-y-auto">
+                    <div className="p-5 space-y-4">
+                      {radarData.map((node, i) => (
+                        <div key={i} className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-bold text-gray-900 tracking-wider">{node.subject}</span>
+                            <span className="text-xs font-black text-brand-blue">{node.score} PTS</span>
+                          </div>
+                          <p className="text-[11px] text-gray-500 leading-relaxed font-medium">
+                            {node.desc}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 

@@ -6,11 +6,11 @@ import { errorHandler } from './middlewares/error.middleware';
 
 const app: Express = express();
 
-// parse json request body
-app.use(express.json());
+// parse json request body with increased limit for Base64 OCR uploads
+app.use(express.json({ limit: '50mb' }));
 
 // parse urlencoded request body
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // enable cookies
 app.use(cookieParser());

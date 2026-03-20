@@ -1,6 +1,7 @@
 import express from 'express';
 import healthRoute from './health.route';
 import authRoute from './auth.route';
+import profileRoute from './profile.route';
 
 const router = express.Router();
 
@@ -13,6 +14,10 @@ const defaultRoutes = [
     path: '/auth',
     route: authRoute,
   },
+  {
+    path: '/profile',
+    route: profileRoute,
+  }
 ];
 
 defaultRoutes.forEach((route) => {

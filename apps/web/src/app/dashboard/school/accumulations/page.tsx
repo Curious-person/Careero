@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { BookOpen, GraduationCap, TrendingUp, ChevronLeft, Mail, Phone, Layers, Trophy, Users, Clock, CalendarDays, CheckCircle, Building2, School, Plus, X, Link, Star, ClipboardList } from "lucide-react"
-import { ACCUMULATIONS, COURSES } from "../_data/school-data"
-import { StatCard, PerformanceBar, StatusBadge } from "../_components/shared"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { BookOpen, Building2, CalendarDays, CheckCircle, ChevronLeft, ClipboardList, Clock, GraduationCap, Layers, Link, Mail, Phone, Plus, School, Star, TrendingUp, Trophy, Users, X } from "lucide-react"
+import { useState } from "react"
+import { PerformanceBar, StatCard, StatusBadge } from "../_components/shared"
 import type { AccumSource, Student } from "../_data/school-data"
+import { ACCUMULATIONS, COURSES } from "../_data/school-data"
 
 type SkillRatings = Record<string, number> // key: skillTag, value: 1-5
 type ParticipantGrade = { grade: string; skillRatings: SkillRatings; feedback: string }

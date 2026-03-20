@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
+import Image from 'next/image'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
 import { Loader2, ShieldCheck, ShieldAlert, BadgeInfo, Network, Award, LayoutDashboard, Users, Settings, HelpCircle, ChevronRight, Eye } from 'lucide-react'
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts'
@@ -328,7 +329,7 @@ export default function StudentProfilePage() {
                           </Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-xl p-0 overflow-hidden bg-transparent border-0 rounded-[24px]">
-                          <img src={cert.fileData} alt={cert.fileName} className="w-full h-auto object-contain bg-black/90 backdrop-blur-xl" />
+                          <Image src={cert.fileData} alt={cert.fileName} width={800} height={600} className="w-full h-auto object-contain bg-black/90 backdrop-blur-xl" unoptimized />
                         </DialogContent>
                       </Dialog>
                     )}

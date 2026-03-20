@@ -7,6 +7,7 @@ import { apiClient } from '@/lib/apiClient'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import Image from 'next/image'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Loader2, UploadCloud, CheckCircle2, FileText, Sparkles, GraduationCap, Eye } from 'lucide-react'
 
@@ -411,7 +412,7 @@ export default function OnboardingFlow() {
                               </Button>
                             </DialogTrigger>
                             <DialogContent className="sm:max-w-xl p-0 overflow-hidden bg-transparent border-0 rounded-[24px]">
-                              <img src={cert.fileData} alt={cert.fileName} className="w-full h-auto object-contain bg-black/90 backdrop-blur-xl" />
+                              <Image src={cert.fileData} alt={cert.fileName} width={800} height={600} className="w-full h-auto object-contain bg-black/90 backdrop-blur-xl" unoptimized />
                             </DialogContent>
                           </Dialog>
                         </div>

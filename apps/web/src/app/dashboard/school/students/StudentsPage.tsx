@@ -4,9 +4,10 @@ import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { BookOpen, GraduationCap, TrendingUp, ChevronLeft, Mail, Phone, Layers, Trophy, Search, ArrowUpDown, UserCheck, Clock, Pencil, Trash2, Plus, ShieldCheck, X, CheckCircle, BookMarked } from "lucide-react"
-import { ACCUMULATIONS, COURSES, PENDING_STUDENTS } from "../_data/school-data"
+import { COURSES, PENDING_STUDENTS } from "../_data/school-data"
 import { StatCard, PerformanceBar, StatusBadge } from "../_components/shared"
 import type { Student, PendingStudent } from "../_data/school-data"
+import type { Accum } from "../accumulations/AccumulationsPage"
 
 const COURSE_CODES = COURSES.map(c => c.code)
 
@@ -74,13 +75,15 @@ export default function StudentsPage({
   onSelectStudent,
   onSelectAccum,
   onBack,
+  accums = [],
 }: {
   selectedCourse: typeof COURSES[0] | null
   selectedStudent: Student | null
   onSelectCourse: (course: typeof COURSES[0]) => void
   onSelectStudent: (student: Student) => void
-  onSelectAccum: (accum: typeof ACCUMULATIONS[0]) => void
+  onSelectAccum: (accum: Accum) => void
   onBack: () => void
+  accums?: Accum[]
 }) {
   const [search, setSearch] = useState("")
   const [sort, setSort] = useState("name")
@@ -179,7 +182,7 @@ export default function StudentsPage({
             ) : (
               <div className="space-y-2">
                 {selectedStudent.currentAccums.map(title => {
-                  const accum = ACCUMULATIONS.find(a => a.title === title)
+                  const accum = accums.find(a => a.title === title)
                   return (
                     <button
                       key={title}
@@ -214,7 +217,7 @@ export default function StudentsPage({
             ) : (
               <div className="space-y-2">
                 {selectedStudent.completedAccums.map(title => {
-                  const accum = ACCUMULATIONS.find(a => a.title === title)
+                  const accum = accums.find(a => a.title === title)
                   return (
                     <button
                       key={title}

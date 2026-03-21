@@ -3,13 +3,14 @@
 import DashboardLayout from "@/components/layouts/DashboardLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Briefcase, Building2, CheckCircle, Clock, GraduationCap, Layers, LayoutDashboard, Settings, TrendingUp, Trophy } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { StatCard } from "./_components/shared"
 import type { Student } from "./_data/school-data"
-import { ACCUMULATIONS, COMPANIES, COURSES, PENDING_STUDENTS } from "./_data/school-data"
-import AccumulationsPage from "./accumulations/AccumulationsPage"
+import { COMPANIES, COURSES, PENDING_STUDENTS } from "./_data/school-data"
+import AccumulationsPage, { type Accum } from "./accumulations/AccumulationsPage"
 import CompanyPage from "./company/CompanyPage"
 import StudentsPage from "./students/StudentsPage"
+import { apiClient } from "@/lib/apiClient"
 
 type View = "dashboard" | "students" | "companies" | "accumulations"
 
@@ -18,8 +19,16 @@ export default function SchoolPage() {
   const [selectedCourse, setSelectedCourse] = useState<typeof COURSES[0] | null>(null)
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [selectedCompany, setSelectedCompany] = useState<typeof COMPANIES[0] | null>(null)
-  const [selectedAccum, setSelectedAccum] = useState<typeof ACCUMULATIONS[0] | null>(null)
+  const [selectedAccum, setSelectedAccum] = useState<Accum | null>(null)
   const [selectedPerson, setSelectedPerson] = useState<{ name: string; role: string; email: string } | null>(null)
+  const [accums, setAccums] = useState<Accum[]>([])
+
+  useEffect(() => {
+    apiClient.get('/accumulations').then(res => {
+      const data = res.data.data.map((a: any) => ({ ...a, id: a._id }))
+      setAccums(data)
+    }).catch(console.error)
+  }, [])
 
   const reset = () => { setSelectedCourse(null); setSelectedStudent(null); setSelectedCompany(null); setSelectedAccum(null); setSelectedPerson(null) }
 
@@ -33,14 +42,15 @@ export default function SchoolPage() {
 
   return (
     <DashboardLayout navigation={navigation}>
-      {view === "dashboard" && <DashboardView />}
+      {view === "dashboard" && <DashboardView accums={accums} />}
       {view === "students" && (
         <StudentsPage
+          accums={accums}
           selectedCourse={selectedCourse}
           selectedStudent={selectedStudent}
           onSelectCourse={setSelectedCourse}
           onSelectStudent={setSelectedStudent}
-          onSelectAccum={(accum: typeof ACCUMULATIONS[0]) => { setSelectedAccum(accum); setSelectedStudent(null); setSelectedCourse(null); setView("accumulations") }}
+          onSelectAccum={(accum: Accum) => { setSelectedAccum(accum); setSelectedStudent(null); setSelectedCourse(null); setView("accumulations") }}
           onBack={() => selectedStudent ? setSelectedStudent(null) : setSelectedCourse(null)}
         />
       )}
@@ -54,6 +64,7 @@ export default function SchoolPage() {
       )}
       {view === "accumulations" && (
         <AccumulationsPage
+          accums={accums}
           selectedAccum={selectedAccum}
           selectedPerson={selectedPerson}
           selectedStudent={selectedStudent}
@@ -65,13 +76,15 @@ export default function SchoolPage() {
             else if (selectedStudent) { setSelectedStudent(null) }
             else { setSelectedAccum(null) }
           }}
+          onAccumUpdate={(updated) => setAccums(prev => prev.map(a => (a._id ?? a.id) === (updated._id ?? updated.id) ? updated : a))}
+          onAccumCreate={(created) => setAccums(prev => [...prev, { ...created, id: created._id ?? created.id }])}
         />
       )}
     </DashboardLayout>
   )
 }
 
-function DashboardView() {
+function DashboardView({ accums }: { accums: Accum[] }) {
   const allStudents = COURSES.flatMap(c => c.students)
   const totalStudents = COURSES.reduce((s, c) => s + c.enrolled, 0)
   const activeStudents = allStudents.filter(s => s.status === "Active").length
@@ -79,8 +92,8 @@ function DashboardView() {
   const avgGpa = (allStudents.reduce((s, st) => s + st.gpa, 0) / allStudents.length).toFixed(2)
   const totalSlots = COMPANIES.reduce((s, c) => s + c.slots, 0)
   const filledSlots = COMPANIES.reduce((s, c) => s + (c.slots - c.slotsAvailable), 0)
-  const activeAccums = ACCUMULATIONS.filter(a => a.status === "Active" || a.status === "Closing Soon").length
-  const totalAccumPoints = ACCUMULATIONS.reduce((s, a) => s + a.points, 0)
+  const activeAccums = accums.filter(a => a.status === "Active" || a.status === "Closing Soon").length
+  const totalAccumPoints = accums.reduce((s, a) => s + a.points, 0)
 
   // GPA buckets
   const gpaBuckets = [
@@ -94,7 +107,7 @@ function DashboardView() {
   // Accumulation type breakdown
   const accumTypes = ["Challenge", "Course", "Task", "Event"]
   const accumTypeColors: Record<string, string> = { Challenge: "bg-orange-500", Course: "bg-blue-500", Task: "bg-purple-500", Event: "bg-green-500" }
-  const accumTypeCounts = accumTypes.map(t => ({ type: t, count: ACCUMULATIONS.filter(a => a.type === t).length }))
+  const accumTypeCounts = accumTypes.map(t => ({ type: t, count: accums.filter(a => a.type === t).length }))
   const maxAccumType = Math.max(...accumTypeCounts.map(a => a.count), 1)
 
   // Top students by GPA
@@ -126,7 +139,7 @@ function DashboardView() {
         <StatCard title="Total Students" value={String(totalStudents)} description={`${activeStudents} active · ${probationStudents} on probation`} icon={GraduationCap} trend={`${PENDING_STUDENTS.length} pending`} trendUp={PENDING_STUDENTS.length === 0} />
         <StatCard title="Average GPA" value={avgGpa} description="across all programmes" icon={TrendingUp} trend={avgGpa >= "3.5" ? "Dean's List avg" : "Good standing"} trendUp={parseFloat(avgGpa) >= 3.0} />
         <StatCard title="Internship Slots" value={`${filledSlots}/${totalSlots}`} description="filled across partners" icon={Briefcase} trend={`${totalSlots - filledSlots} available`} trendUp={totalSlots - filledSlots > 0} />
-        <StatCard title="Active Accumulations" value={String(activeAccums)} description={`${totalAccumPoints} pts available`} icon={Layers} trend={`${ACCUMULATIONS.filter(a => a.status === "Closing Soon").length} closing soon`} trendUp />
+        <StatCard title="Active Accumulations" value={String(activeAccums)} description={`${totalAccumPoints} pts available`} icon={Layers} trend={`${accums.filter(a => a.status === "Closing Soon").length} closing soon`} trendUp />
       </div>
 
       {/* Enrolment + GPA distribution */}
@@ -249,7 +262,7 @@ function DashboardView() {
             </div>
             <div className="grid grid-cols-3 gap-2 pt-1">
               {(["Active", "Closing Soon", "Upcoming"] as const).map(s => {
-                const cnt = ACCUMULATIONS.filter(a => a.status === s).length
+                const cnt = accums.filter(a => a.status === s).length
                 const color = s === "Active" ? "bg-green-100 text-green-700" : s === "Closing Soon" ? "bg-yellow-100 text-yellow-700" : "bg-blue-100 text-blue-700"
                 return (
                   <div key={s} className={`rounded-lg p-2 text-center ${color}`}>
@@ -357,11 +370,11 @@ function DashboardView() {
             <CardDescription>Participant count and completion rate per accumulation</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {ACCUMULATIONS.filter(a => a.participantList.length > 0).map(a => {
+            {accums.filter(a => a.participantList.length > 0).map(a => {
               const completed = a.participantList.filter(p => p.status === "Completed").length
               const pct = Math.round((completed / a.participantList.length) * 100)
               return (
-                <div key={a.id} className="space-y-1">
+                <div key={a._id ?? a.id} className="space-y-1">
                   <div className="flex justify-between text-xs">
                     <span className="font-medium truncate max-w-[60%]">{a.title}</span>
                     <span className="text-muted-foreground shrink-0">{completed}/{a.participantList.length} done ({pct}%)</span>

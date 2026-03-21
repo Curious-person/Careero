@@ -6,7 +6,8 @@ import { BookOpen, Building2, CalendarDays, CheckCircle, ChevronLeft, ClipboardL
 import { useState } from "react"
 import { PerformanceBar, StatCard, StatusBadge } from "../_components/shared"
 import type { AccumSource, Student } from "../_data/school-data"
-import { ACCUMULATIONS, COURSES } from "../_data/school-data"
+import { COURSES } from "../_data/school-data"
+import { apiClient } from "@/lib/apiClient"
 
 type SkillRatings = Record<string, number> // key: skillTag, value: 1-5
 type ParticipantGrade = { grade: string; skillRatings: SkillRatings; feedback: string }
@@ -44,19 +45,51 @@ const typeColor = (t: string) =>
   t === "Challenge" ? "bg-orange-100 text-orange-700" : t === "Course" ? "bg-blue-100 text-blue-700" : t === "Event" ? "bg-purple-100 text-purple-700" : "bg-muted text-muted-foreground"
 
 const ACCUM_TYPES = ["Challenge", "Course", "Task", "Event"]
-const ACCUM_FIELDS = ["Network Administration", "Cybersecurity", "Cloud Computing", "Software Development", "Web Development", "Mobile Development", "UI/UX Design", "Business Analysis", "Data Analytics", "Project Management", "Communication", "Agile / Scrum"]
 const ACCUM_COURSES = ["BSIT", "BSCS", "BSBA"]
+const ACCUM_FIELDS = ["Web Development", "Cybersecurity", "Cloud Computing", "Networking", "Software Development", "Mobile Development", "UI/UX Design", "Data Analytics", "Project Management", "Business", "Communication"]
 
-type PersonInCharge = { name: string; role: string; email: string }
-
-type NewAccum = {
-  title: string; type: string; field: string
-  courses: string[]; deadline: string; duration: string; points: string; description: string
-  skillTags: string[]; inCharge: PersonInCharge[]; resourceLink: string
+// Keyword → skill tag mapping for auto-detection
+const SKILL_KEYWORD_MAP: Record<string, string[]> = {
+  "#webdev": ["web", "html", "css", "frontend", "backend", "fullstack", "react", "next", "vue", "angular"],
+  "#cybersec": ["security", "cyber", "hacking", "penetration", "firewall", "vulnerability", "ctf"],
+  "#cloud": ["cloud", "aws", "azure", "gcp", "devops", "kubernetes", "docker", "serverless"],
+  "#networking": ["network", "routing", "switching", "cisco", "tcp", "ip", "dns", "vpn"],
+  "#softwaredev": ["software", "programming", "algorithm", "data structure", "oop", "api", "microservice"],
+  "#mobiledev": ["mobile", "android", "ios", "flutter", "react native", "swift", "kotlin"],
+  "#uiux": ["ui", "ux", "design", "figma", "prototype", "wireframe", "user experience"],
+  "#dataanalytics": ["data", "analytics", "sql", "excel", "tableau", "power bi", "statistics", "machine learning", "ai"],
+  "#projectmgmt": ["project", "management", "agile", "scrum", "kanban", "sprint", "planning"],
+  "#business": ["business", "analysis", "strategy", "marketing", "finance", "entrepreneurship"],
+  "#communication": ["communication", "presentation", "writing", "speaking", "leadership", "teamwork"],
 }
 
-const EMPTY_FORM: NewAccum = { title: "", type: "Challenge", field: "", courses: [], deadline: "", duration: "", points: "", description: "", skillTags: [], inCharge: [], resourceLink: "" }
+function extractTagsFromText(title: string, description: string): string[] {
+  const text = `${title} ${description}`.toLowerCase()
+  return Object.entries(SKILL_KEYWORD_MAP)
+    .filter(([, keywords]) => keywords.some(kw => text.includes(kw)))
+    .map(([tag]) => tag)
+}
+
+type PersonInCharge = { name: string; role: string; email: string }
+type TypeSpecificItem = { title: string; description: string }
+type AgendaItem = { time: string; activity: string }
+
+type NewAccum = {
+  title: string; type: string;
+  courses: string[]; deadline: string; duration: string; points: string; description: string
+  skillTags: string[]; inCharge: PersonInCharge[]; resourceLink: string
+  challenges: TypeSpecificItem[]; modules: TypeSpecificItem[]
+  tasks: TypeSpecificItem[]; agenda: AgendaItem[]
+}
+
+const EMPTY_FORM: NewAccum = {
+  title: "", type: "Challenge", courses: [], deadline: "", duration: "", points: "",
+  description: "", skillTags: [], inCharge: [], resourceLink: "",
+  challenges: [], modules: [], tasks: [], agenda: [],
+}
 const EMPTY_PERSON: PersonInCharge = { name: "", role: "", email: "" }
+const EMPTY_ITEM: TypeSpecificItem = { title: "", description: "" }
+const EMPTY_AGENDA: AgendaItem = { time: "", activity: "" }
 
 const inputCls = "w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
 
@@ -65,7 +98,19 @@ function CreateAccumulationModal({ onClose, onSubmit }: { onClose: () => void; o
   const [tagInput, setTagInput] = useState("")
   const [errors, setErrors] = useState<Partial<Record<keyof NewAccum, string>>>({})
 
-  const set = (k: keyof NewAccum, v: string | string[] | PersonInCharge[]) => setForm(f => ({ ...f, [k]: v }))
+  const set = <K extends keyof NewAccum>(k: K, v: NewAccum[K]) => setForm(f => ({ ...f, [k]: v }))
+
+  const mergeSkillTags = (title: string, description: string, currentTags: string[]) => {
+    const auto = extractTagsFromText(title, description)
+    return Array.from(new Set([...currentTags, ...auto]))
+  }
+
+  const syncText = (k: 'title' | 'description', value: string) => {
+    const trimmed = k === 'title' ? value.slice(0, 100) : value.slice(0, 1000)
+    const nextForm = { ...form, [k]: trimmed }
+    const nextTags = mergeSkillTags(nextForm.title, nextForm.description, form.skillTags)
+    setForm({ ...nextForm, skillTags: nextTags })
+  }
 
   const toggleCourse = (c: string) =>
     set("courses", form.courses.includes(c) ? form.courses.filter(x => x !== c) : [...form.courses, c])
@@ -89,12 +134,31 @@ function CreateAccumulationModal({ onClose, onSubmit }: { onClose: () => void; o
   const validate = () => {
     const e: Partial<Record<keyof NewAccum, string>> = {}
     if (!form.title.trim()) e.title = "Required"
-    if (!form.field) e.field = "Required"
+    else if (form.title.length > 100) e.title = "Max 100 characters"
     if (!form.courses.length) e.courses = "Select at least one"
     if (!form.deadline) e.deadline = "Required"
     if (!form.duration.trim()) e.duration = "Required"
     if (!form.points || isNaN(Number(form.points)) || Number(form.points) <= 0) e.points = "Must be a positive number"
     if (!form.description.trim()) e.description = "Required"
+    else if (form.description.length > 1000) e.description = "Max 1000 characters"
+
+    if (form.type === "Challenge") {
+      if (!form.challenges.length) e.challenges = "Add at least one challenge"
+      else if (form.challenges.some(c => !c.title.trim() || !c.description.trim())) e.challenges = "Each challenge must have title and description"
+    }
+    if (form.type === "Course") {
+      if (!form.modules.length) e.modules = "Add at least one module"
+      else if (form.modules.some(m => !m.title.trim() || !m.description.trim())) e.modules = "Each module must have title and description"
+    }
+    if (form.type === "Event") {
+      if (!form.agenda.length) e.agenda = "Add at least one agenda item"
+      else if (form.agenda.some(a => !a.time.trim() || !a.activity.trim())) e.agenda = "Each agenda item must have time and activity"
+    }
+    if (form.type === "Task") {
+      if (!form.tasks.length) e.tasks = "Add at least one task"
+      else if (form.tasks.some(t => !t.title.trim() || !t.description.trim())) e.tasks = "Each task must have title and description"
+    }
+
     setErrors(e)
     return !Object.keys(e).length
   }
@@ -116,7 +180,8 @@ function CreateAccumulationModal({ onClose, onSubmit }: { onClose: () => void; o
           {/* Title */}
           <div className="space-y-1">
             <label htmlFor="accum-title" className="text-sm font-medium">Title</label>
-            <input id="accum-title" value={form.title} onChange={e => set("title", e.target.value)} placeholder="e.g. Web Dev Bootcamp" className={inputCls} />
+            <input id="accum-title" maxLength={100} value={form.title} onChange={e => syncText('title', e.target.value)} placeholder="e.g. Web Dev Bootcamp" className={inputCls} />
+            <p className="text-xs text-muted-foreground">{form.title.length}/100</p>
             {errors.title && <p className="text-xs text-red-500">{errors.title}</p>}
           </div>
 
@@ -126,16 +191,6 @@ function CreateAccumulationModal({ onClose, onSubmit }: { onClose: () => void; o
             <select id="accum-type" value={form.type} onChange={e => set("type", e.target.value)} className={inputCls}>
               {ACCUM_TYPES.map(t => <option key={t}>{t}</option>)}
             </select>
-          </div>
-
-          {/* Performance Field */}
-          <div className="space-y-1">
-            <label htmlFor="accum-field" className="text-sm font-medium">Performance Field</label>
-            <select id="accum-field" value={form.field} onChange={e => set("field", e.target.value)} className={inputCls}>
-              <option value="">Select a field</option>
-              {ACCUM_FIELDS.map(f => <option key={f}>{f}</option>)}
-            </select>
-            {errors.field && <p className="text-xs text-red-500">{errors.field}</p>}
           </div>
 
           {/* Skill Tags */}
@@ -151,6 +206,10 @@ function CreateAccumulationModal({ onClose, onSubmit }: { onClose: () => void; o
                 className={`${inputCls} flex-1`}
               />
               <Button type="button" variant="outline" onClick={addTag} className="shrink-0">Add</Button>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <Button type="button" variant="outline" size="sm" onClick={() => set("skillTags", mergeSkillTags(form.title, form.description, form.skillTags))}>Auto-detect from text</Button>
+              <span className="text-xs text-muted-foreground">Matches tokens in title and description</span>
             </div>
             {form.skillTags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1">
@@ -202,8 +261,84 @@ function CreateAccumulationModal({ onClose, onSubmit }: { onClose: () => void; o
           {/* Description */}
           <div className="space-y-1">
             <label htmlFor="accum-desc" className="text-sm font-medium">Description</label>
-            <textarea id="accum-desc" rows={3} value={form.description} onChange={e => set("description", e.target.value)} placeholder="Describe the accumulation..." className={`${inputCls} resize-none`} />
+            <textarea id="accum-desc" maxLength={1000} rows={3} value={form.description} onChange={e => syncText('description', e.target.value)} placeholder="Describe the accumulation..." className={`${inputCls} resize-none`} />
+            <p className="text-xs text-muted-foreground">{form.description.length}/1000</p>
             {errors.description && <p className="text-xs text-red-500">{errors.description}</p>}
+          </div>
+
+          {/* Type-specific parameters */}
+          <div className="space-y-3">
+            {form.type === "Challenge" && (
+              <div className="space-y-2 border p-3 rounded-lg bg-muted/10">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">Challenges</h3>
+                  <Button type="button" variant="outline" size="sm" onClick={() => set("challenges", [...form.challenges, { ...EMPTY_ITEM }])} className="h-7 text-xs gap-1"><Plus className="h-3 w-3" />Add Challenge</Button>
+                </div>
+                {form.challenges.length === 0 && <p className="text-xs text-muted-foreground">Add at least one challenge item.</p>}
+                {form.challenges.map((item, idx) => (
+                  <div key={`challenge-${idx}`} className="grid gap-2 md:grid-cols-2 p-2 rounded border bg-white">
+                    <input value={item.title} onChange={e => set("challenges", form.challenges.map((c, i) => i === idx ? { ...c, title: e.target.value } : c))} placeholder="Challenge title" className={inputCls} />
+                    <input value={item.description} onChange={e => set("challenges", form.challenges.map((c, i) => i === idx ? { ...c, description: e.target.value } : c))} placeholder="Challenge description" className={inputCls} />
+                    <button type="button" onClick={() => set("challenges", form.challenges.filter((_, i) => i !== idx))} className="text-xs text-red-600">Remove</button>
+                  </div>
+                ))}
+                {errors.challenges && <p className="text-xs text-red-500">{errors.challenges}</p>}
+              </div>
+            )}
+
+            {form.type === "Course" && (
+              <div className="space-y-2 border p-3 rounded-lg bg-muted/10">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">Course Modules</h3>
+                  <Button type="button" variant="outline" size="sm" onClick={() => set("modules", [...form.modules, { ...EMPTY_ITEM }])} className="h-7 text-xs gap-1"><Plus className="h-3 w-3" />Add Module</Button>
+                </div>
+                {form.modules.length === 0 && <p className="text-xs text-muted-foreground">Add at least one module.</p>}
+                {form.modules.map((item, idx) => (
+                  <div key={`module-${idx}`} className="grid gap-2 md:grid-cols-2 p-2 rounded border bg-white">
+                    <input value={item.title} onChange={e => set("modules", form.modules.map((c, i) => i === idx ? { ...c, title: e.target.value } : c))} placeholder="Module title" className={inputCls} />
+                    <input value={item.description} onChange={e => set("modules", form.modules.map((c, i) => i === idx ? { ...c, description: e.target.value } : c))} placeholder="Module description" className={inputCls} />
+                    <button type="button" onClick={() => set("modules", form.modules.filter((_, i) => i !== idx))} className="text-xs text-red-600">Remove</button>
+                  </div>
+                ))}
+                {errors.modules && <p className="text-xs text-red-500">{errors.modules}</p>}
+              </div>
+            )}
+
+            {form.type === "Event" && (
+              <div className="space-y-2 border p-3 rounded-lg bg-muted/10">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">Event Agenda</h3>
+                  <Button type="button" variant="outline" size="sm" onClick={() => set("agenda", [...form.agenda, { ...EMPTY_AGENDA }])} className="h-7 text-xs gap-1"><Plus className="h-3 w-3" />Add Agenda Item</Button>
+                </div>
+                {form.agenda.length === 0 && <p className="text-xs text-muted-foreground">Add at least one agenda item.</p>}
+                {form.agenda.map((item, idx) => (
+                  <div key={`agenda-${idx}`} className="grid gap-2 md:grid-cols-3 p-2 rounded border bg-white">
+                    <input value={item.time} onChange={e => set("agenda", form.agenda.map((c, i) => i === idx ? { ...c, time: e.target.value } : c))} placeholder="Time" className={inputCls} />
+                    <input value={item.activity} onChange={e => set("agenda", form.agenda.map((c, i) => i === idx ? { ...c, activity: e.target.value } : c))} placeholder="Activity" className={inputCls} />
+                    <button type="button" onClick={() => set("agenda", form.agenda.filter((_, i) => i !== idx))} className="text-xs text-red-600">Remove</button>
+                  </div>
+                ))}
+                {errors.agenda && <p className="text-xs text-red-500">{errors.agenda}</p>}
+              </div>
+            )}
+
+            {form.type === "Task" && (
+              <div className="space-y-2 border p-3 rounded-lg bg-muted/10">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">Tasks</h3>
+                  <Button type="button" variant="outline" size="sm" onClick={() => set("tasks", [...form.tasks, { ...EMPTY_ITEM }])} className="h-7 text-xs gap-1"><Plus className="h-3 w-3" />Add Task</Button>
+                </div>
+                {form.tasks.length === 0 && <p className="text-xs text-muted-foreground">Add at least one task item.</p>}
+                {form.tasks.map((item, idx) => (
+                  <div key={`task-${idx}`} className="grid gap-2 md:grid-cols-2 p-2 rounded border bg-white">
+                    <input value={item.title} onChange={e => set("tasks", form.tasks.map((c, i) => i === idx ? { ...c, title: e.target.value } : c))} placeholder="Task title" className={inputCls} />
+                    <input value={item.description} onChange={e => set("tasks", form.tasks.map((c, i) => i === idx ? { ...c, description: e.target.value } : c))} placeholder="Task description" className={inputCls} />
+                    <button type="button" onClick={() => set("tasks", form.tasks.filter((_, i) => i !== idx))} className="text-xs text-red-600">Remove</button>
+                  </div>
+                ))}
+                {errors.tasks && <p className="text-xs text-red-500">{errors.tasks}</p>}
+              </div>
+            )}
           </div>
 
           {/* People in Charge */}
@@ -241,7 +376,16 @@ function CreateAccumulationModal({ onClose, onSubmit }: { onClose: () => void; o
   )
 }
 
+export type Accum = {
+  id: string; _id?: string; title: string; type: string; source: AccumSource; createdBy: string
+  field: string; courses: string[]; deadline: string; duration: string; points: number
+  status: string; participants: number; description: string; skillTags: string[]
+  resourceLink: string; objectives: string[]; inCharge: { name: string; role: string; email: string }[]
+  participantList: { name: string; course: string; status: string }[]
+}
+
 export default function AccumulationsPage({
+  accums,
   selectedAccum,
   selectedPerson,
   selectedStudent,
@@ -249,17 +393,21 @@ export default function AccumulationsPage({
   onSelectPerson,
   onSelectStudent,
   onBack,
+  onAccumUpdate,
+  onAccumCreate,
 }: {
-  selectedAccum: typeof ACCUMULATIONS[0] | null
+  accums: Accum[]
+  selectedAccum: Accum | null
   selectedPerson: { name: string; role: string; email: string } | null
   selectedStudent: Student | null
-  onSelectAccum: (a: typeof ACCUMULATIONS[0]) => void
+  onSelectAccum: (a: Accum) => void
   onSelectPerson: (person: { name: string; role: string; email: string }) => void
   onSelectStudent: (student: Student, course: typeof COURSES[0]) => void
   onBack: () => void
+  onAccumUpdate?: (updated: Accum) => void
+  onAccumCreate?: (created: Accum) => void
 }) {
   const [tab, setTab] = useState<AccumSource>("school")
-  const [accums, setAccums] = useState(ACCUMULATIONS)
   const [showModal, setShowModal] = useState(false)
   const [gradesMap, setGradesMap] = useState<Record<string, GradesMap>>({})
   const [gradingName, setGradingName] = useState<string | null>(null)
@@ -273,32 +421,42 @@ export default function AccumulationsPage({
       [accumId]: { ...prev[accumId], [name]: { ...getGrade(accumId, name), ...patch } },
     }))
 
-  const endAccum = (id: string) =>
-    setAccums(prev => prev.map(a => a.id === id ? { ...a, status: "Ended" } : a))
+  const endAccum = async (id: string) => {
+    try {
+      const res = await apiClient.patch(`/accumulations/${id}/end`)
+      onAccumUpdate?.(res.data.data)
+    } catch (err) {
+      console.error(err)
+    }
+  }
 
-  const handleCreate = (data: NewAccum) => {
-    const formatted = new Date(data.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-    setAccums(prev => [...prev, {
-      id: `acc-${Date.now()}`,
-      title: data.title,
-      type: data.type,
-      source: "school" as AccumSource,
-      createdBy: "School",
-      field: data.field,
-      courses: data.courses,
-      deadline: formatted,
-      duration: data.duration,
-      points: Number(data.points),
-      status: "Active",
-      participants: 0,
-      description: data.description,
-      skillTags: data.skillTags,
-      resourceLink: data.resourceLink,
-      objectives: [],
-      inCharge: data.inCharge,
-      participantList: [],
-    }])
-    setShowModal(false)
+  const handleCreate = async (data: NewAccum) => {
+    try {
+      const formatted = new Date(data.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      const res = await apiClient.post('/accumulations', {
+        title: data.title,
+        type: data.type,
+        source: "school",
+        createdBy: "School",
+        courses: data.courses,
+        deadline: formatted,
+        duration: data.duration,
+        points: Number(data.points),
+        description: data.description,
+        skillTags: data.skillTags,
+        resourceLink: data.resourceLink,
+        objectives: [],
+        inCharge: data.inCharge,
+        challenges: data.challenges,
+        modules: data.modules,
+        agenda: data.agenda,
+        tasks: data.tasks,
+      })
+      onAccumCreate?.(res.data.data)
+      setShowModal(false)
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   if (selectedPerson && selectedAccum) {
@@ -411,7 +569,8 @@ export default function AccumulationsPage({
   if (selectedAccum) {
     const TypeIcon = typeIcon(selectedAccum.type)
     const sourceColor = selectedAccum.source === "school" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-    const accum = accums.find(a => a.id === selectedAccum.id) ?? selectedAccum
+    const accum = accums.find(a => (a._id ?? a.id) === (selectedAccum._id ?? selectedAccum.id)) ?? selectedAccum
+    const accumId = accum._id ?? accum.id
     const isEnded = accum.status === "Ended"
     const canEnd = accum.source === "school" && (accum.status === "Active" || accum.status === "Closing Soon")
 
@@ -426,7 +585,7 @@ export default function AccumulationsPage({
             </div>
           </div>
           {canEnd && (
-            <Button variant="destructive" size="sm" onClick={() => endAccum(accum.id)}>End Accumulation</Button>
+            <Button variant="destructive" size="sm" onClick={() => endAccum(accumId)}>End Accumulation</Button>
           )}
           {isEnded && (
             <span className="text-xs px-3 py-1 rounded-full bg-red-100 text-red-700 font-medium">Ended</span>
@@ -571,7 +730,7 @@ export default function AccumulationsPage({
                 <div className="space-y-3">
                   {accum.participantList.map(p => {
                     const initials = p.name.split(" ").map(n => n[0]).join("")
-                    const g = getGrade(accum.id, p.name)
+                    const g = getGrade(accumId, p.name)
                     const isOpen = gradingName === p.name
                     const graded = g.grade || Object.keys(g.skillRatings).length > 0 || g.feedback
                     return (
@@ -601,7 +760,7 @@ export default function AccumulationsPage({
                               <label className="text-xs font-medium">Grade</label>
                               <input
                                 value={g.grade}
-                                onChange={e => setGrade(accum.id, p.name, { grade: e.target.value })}
+                                onChange={e => setGrade(accumId, p.name, { grade: e.target.value })}
                                 placeholder="e.g. 92 or A"
                                 className={inputCls}
                               />
@@ -615,7 +774,7 @@ export default function AccumulationsPage({
                                       <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{tag}</span>
                                       <StarRating
                                         value={g.skillRatings[tag] ?? 0}
-                                        onChange={v => setGrade(accum.id, p.name, { skillRatings: { ...g.skillRatings, [tag]: v } })}
+                                        onChange={v => setGrade(accumId, p.name, { skillRatings: { ...g.skillRatings, [tag]: v } })}
                                       />
                                     </div>
                                   ))}
@@ -627,7 +786,7 @@ export default function AccumulationsPage({
                               <textarea
                                 rows={2}
                                 value={g.feedback}
-                                onChange={e => setGrade(accum.id, p.name, { feedback: e.target.value })}
+                                onChange={e => setGrade(accumId, p.name, { feedback: e.target.value })}
                                 placeholder="Write feedback for this student..."
                                 className={`${inputCls} resize-none`}
                               />
@@ -680,7 +839,7 @@ export default function AccumulationsPage({
     )
   }
 
-  const filtered = accums.filter(a => a.source === tab)
+  const filtered = (accums ?? []).filter(a => a.source === tab)
 
   return (
     <div className="space-y-6">
@@ -712,7 +871,7 @@ export default function AccumulationsPage({
         {filtered.map(accum => {
           const Icon = typeIcon(accum.type)
           return (
-            <button type="button" key={accum.id} onClick={() => onSelectAccum(accum)} className="text-left">
+            <button type="button" key={accum._id ?? accum.id} onClick={() => onSelectAccum(accum)} className="text-left">
               <Card className="hover:border-primary hover:shadow-md transition-all cursor-pointer h-full">
                 <CardHeader>
                   <div className="flex items-start justify-between gap-2">

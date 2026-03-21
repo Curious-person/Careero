@@ -7,6 +7,7 @@ const express_1 = __importDefault(require("express"));
 const health_route_1 = __importDefault(require("./health.route"));
 const auth_route_1 = __importDefault(require("./auth.route"));
 const profile_route_1 = __importDefault(require("./profile.route"));
+const accumulation_route_1 = __importDefault(require("./accumulation.route"));
 const router = express_1.default.Router();
 const defaultRoutes = [
     {
@@ -20,7 +21,11 @@ const defaultRoutes = [
     {
         path: '/profile',
         route: profile_route_1.default,
-    }
+    },
+    {
+        path: '/accumulations',
+        route: accumulation_route_1.default,
+    },
 ];
 defaultRoutes.forEach((route) => {
     router.use(route.path, route.route);

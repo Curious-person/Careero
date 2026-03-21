@@ -1,4 +1,4 @@
-# Pathly - Developer Guide
+# Careero - Developer Guide
 
 ## 📋 Table of Contents
 
@@ -15,7 +15,7 @@
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
 
 ### Installation

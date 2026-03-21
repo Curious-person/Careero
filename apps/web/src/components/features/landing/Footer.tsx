@@ -12,7 +12,7 @@ export const Footer = () => {
               <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
                 <Rocket className="text-white w-5 h-5" />
               </div>
-              <span className="text-xl font-bold tracking-tight">Pathly</span>
+              <span className="text-xl font-bold tracking-tight">Careero</span>
             </div>
             <p className="text-gray-500 text-sm leading-relaxed">
               Empowering the next generation to build meaningful careers through verified skills and community.
@@ -48,7 +48,7 @@ export const Footer = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row justify-between items-center gap-6 pt-8 border-t border-gray-50 text-xs text-gray-400 font-medium">
-          <p>© {new Date().getFullYear()} Pathly Inc. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Careero Inc. All rights reserved.</p>
           <div className="flex gap-6">
             <Link href="#" className="hover:text-black transition-colors">Twitter</Link>
             <Link href="#" className="hover:text-black transition-colors">Instagram</Link>

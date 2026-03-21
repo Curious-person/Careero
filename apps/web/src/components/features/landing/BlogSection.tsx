@@ -16,7 +16,7 @@ export const BlogSection = () => {
     <section id="blog" className="py-24 bg-white border-t border-gray-100">
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-end justify-between mb-12">
-          <h2 className="text-4xl font-bold">The latest from <br />Pathly.</h2>
+          <h2 className="text-4xl font-bold">The latest from <br />Careero.</h2>
           <button className="text-sm font-bold flex items-center gap-1 hover:gap-2 transition-all">
             View all posts <ArrowRight className="w-4 h-4" />
           </button>
@@ -24,15 +24,15 @@ export const BlogSection = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {posts.map((post, i) => (
-            <motion.div 
+            <motion.div
               key={i}
               whileHover={{ y: -8 }}
               className="group cursor-pointer"
             >
               <div className="aspect-[4/3] bg-gray-100 rounded-[32px] mb-6 overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img 
-                  src={`https://picsum.photos/seed/career${i}/800/600`} 
+                <img
+                  src={`https://picsum.photos/seed/career${i}/800/600`}
                   alt={post.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   referrerPolicy="no-referrer"

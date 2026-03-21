@@ -11,7 +11,7 @@ import { apiClient } from '@/lib/apiClient'
 const ErrorAlert = ({ message }: { message: string }) => {
   if (!message) return null;
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       className="flex items-center gap-2 bg-red-50 border border-red-100 text-red-600 text-sm font-medium p-3 rounded-xl w-full text-left mt-2 mb-2"
@@ -29,7 +29,7 @@ import {
   InputOTPSlot,
 } from '@/components/ui/input-otp'
 
-type Step = 'EMAIL' | 'PASSWORD' | 'OTP' | 'REGISTER_PASSWORD'
+type Step = 'EMAIL' | 'PASSWORD' | 'OTP' | 'REGISTER_PASSWORD' | 'STUDENT_ID'
 
 export default function LoginPage() {
   const [step, setStep] = useState<Step>('EMAIL')
@@ -41,6 +41,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [otp, setOtp] = useState('')
+  const [studentId, setStudentId] = useState('')
 
   // Wipe leftover localstorage from old architectural setup
   useEffect(() => {
@@ -51,10 +52,10 @@ export default function LoginPage() {
 
   // Scalable Route Mapper
   const getRedirectPath = (role: string) => {
-    switch(role) {
+    switch (role) {
       case 'student': return '/dashboard/student';
       case 'school': return '/dashboard/school';
-      case 'company': return '/dashboard/company/dashboard';
+      case 'company': return '/dashboard/company';
       default: return '/dashboard/student';
     }
   }
@@ -62,7 +63,7 @@ export default function LoginPage() {
   const handleCheckEmail = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email) return
-    
+
     setError('')
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -73,7 +74,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const { data } = await apiClient.post('/auth/check-email', { email })
-      
+
       if (data.exists) {
         if (data.skipOtp) {
           setStep('PASSWORD')
@@ -88,6 +89,28 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Connection error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCheckStudentId = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    // Strict mock regex: 4 digits, a dash, and 5 digits
+    const studentIdRegex = /^\d{4}-\d{5}$/;
+    if (!studentIdRegex.test(studentId)) {
+      setError('Invalid format. Please use: 2023-12345')
+      return;
+    }
+
+    setLoading(true)
+    try {
+      await apiClient.post('/auth/request-otp', { email })
+      setStep('OTP')
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to request OTP')
     } finally {
       setLoading(false)
     }
@@ -110,18 +133,18 @@ export default function LoginPage() {
   const handleVerifyOtp = async (code: string) => {
     setOtp(code)
     if (code.length !== 6) return
-    
+
     setLoading(true)
     setError('')
     try {
       await apiClient.post('/auth/verify-otp', { email, otp: code })
-      
+
       // If user exists, we skip registering password and log them in smoothly
       const checkRes = await apiClient.post('/auth/check-email', { email })
       if (checkRes.data.exists) {
-         setStep('PASSWORD')
+        setStep('PASSWORD')
       } else {
-         setStep('REGISTER_PASSWORD')
+        setStep('REGISTER_PASSWORD')
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid OTP')
@@ -132,7 +155,7 @@ export default function LoginPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     setError('')
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(password)) {
@@ -160,13 +183,13 @@ export default function LoginPage() {
           <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
             <Rocket className="text-white w-5 h-5" />
           </div>
-          <span className="text-xl font-bold tracking-tight">Pathly</span>
+          <span className="text-xl font-bold tracking-tight">Careero</span>
         </Link>
       </nav>
 
       <main className="flex-1 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-sm relative">
-          
+
           {/* Back Button Context */}
           <AnimatePresence>
             {step !== 'EMAIL' && (
@@ -183,7 +206,7 @@ export default function LoginPage() {
           </AnimatePresence>
 
           <AnimatePresence mode="wait">
-            
+
             {/* STEP: EMAIL */}
             {step === 'EMAIL' && (
               <motion.div
@@ -197,9 +220,9 @@ export default function LoginPage() {
                 <div className="w-16 h-16 bg-gray-100 rounded-2xl mx-auto mb-6 flex items-center justify-center">
                   <Rocket className="w-8 h-8 text-black" />
                 </div>
-                <h1 className="text-2xl font-bold mb-2">Welcome to Pathly</h1>
+                <h1 className="text-2xl font-bold mb-2">Welcome to Careero</h1>
                 <p className="text-sm text-gray-500 mb-8">Log in or sign up to get started.</p>
-                
+
                 <form onSubmit={handleCheckEmail} className="flex flex-col gap-4">
                   <Input
                     type="email"
@@ -210,7 +233,7 @@ export default function LoginPage() {
                     required
                   />
                   <ErrorAlert message={error} />
-                  
+
                   <Button
                     type="submit"
                     className="h-14 rounded-2xl w-full bg-black text-white text-lg font-semibold hover:bg-gray-800 transition-all mt-2"
@@ -219,10 +242,49 @@ export default function LoginPage() {
                     {loading ? <Loader2 className="animate-spin w-5 h-5" /> : 'Continue'}
                   </Button>
                 </form>
-                
+
                 <p className="text-xs text-gray-400 mt-8">
                   We&apos;ll create an account if you don&apos;t have one yet.
                 </p>
+              </motion.div>
+            )}
+
+            {/* STEP: STUDENT ID */}
+            {step === 'STUDENT_ID' && (
+              <motion.div
+                key="student_id"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.3 }}
+                className="text-center"
+              >
+                <div className="w-16 h-16 bg-gray-100 rounded-2xl mx-auto mb-6 flex items-center justify-center">
+                  <span className="text-2xl">🎓</span>
+                </div>
+                <h1 className="text-2xl font-bold mb-2">Are you a student?</h1>
+                <p className="text-sm text-gray-500 mb-8 font-medium">Please enter your school ID for verification.</p>
+
+                <form onSubmit={handleCheckStudentId} className="flex flex-col gap-4">
+                  <Input
+                    type="text"
+                    placeholder="E.g. 2023-12345"
+                    value={studentId}
+                    onChange={(e) => setStudentId(e.target.value)}
+                    className="h-14 rounded-2xl bg-gray-50/50 border-gray-200 text-lg px-4 font-mono text-center tracking-wider"
+                    required
+                    autoFocus
+                  />
+                  <ErrorAlert message={error} />
+
+                  <Button
+                    type="submit"
+                    className="h-14 rounded-2xl w-full bg-black text-white text-lg font-semibold hover:bg-gray-800 transition-all mt-2"
+                    disabled={loading || !studentId}
+                  >
+                    {loading ? <Loader2 className="animate-spin w-5 h-5" /> : 'Verify Identity'}
+                  </Button>
+                </form>
               </motion.div>
             )}
 
@@ -241,7 +303,7 @@ export default function LoginPage() {
                 </div>
                 <h1 className="text-2xl font-bold mb-2">Welcome back</h1>
                 <p className="text-sm text-gray-500 mb-8 font-medium">{email}</p>
-                
+
                 <form onSubmit={handleLogin} className="flex flex-col gap-4">
                   <div className="relative">
                     <Input
@@ -253,8 +315,8 @@ export default function LoginPage() {
                       required
                       autoFocus
                     />
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors"
                     >
@@ -262,7 +324,7 @@ export default function LoginPage() {
                     </button>
                   </div>
                   <ErrorAlert message={error} />
-                  
+
                   <Button
                     type="submit"
                     className="h-14 rounded-2xl w-full bg-black text-white text-lg font-semibold hover:bg-gray-800 transition-all mt-2"
@@ -288,8 +350,8 @@ export default function LoginPage() {
                   <span className="text-2xl">✉️</span>
                 </div>
                 <h1 className="text-2xl font-bold mb-2">We&apos;ve emailed you a code</h1>
-                <p className="text-sm text-gray-500 mb-8 font-medium">Please enter the code we sent to<br/><span className="text-black">{email}</span></p>
-                
+                <p className="text-sm text-gray-500 mb-8 font-medium">Please enter the code we sent to<br /><span className="text-black">{email}</span></p>
+
                 <div className="flex justify-center mb-6">
                   <InputOTP maxLength={6} value={otp} onChange={handleVerifyOtp} disabled={loading} autoFocus>
                     <InputOTPGroup className="gap-2">
@@ -302,11 +364,11 @@ export default function LoginPage() {
                     </InputOTPGroup>
                   </InputOTP>
                 </div>
-                
+
                 <ErrorAlert message={error} />
-                
+
                 <p className="text-sm text-gray-500">
-                  Didn&apos;t receive a code? <button className="text-black font-semibold hover:underline" onClick={() => handleCheckEmail({preventDefault: () => {}} as any)}>Resend</button>
+                  Didn&apos;t receive a code? <button className="text-black font-semibold hover:underline" onClick={() => handleCheckEmail({ preventDefault: () => { } } as any)}>Resend</button>
                 </p>
               </motion.div>
             )}
@@ -326,7 +388,7 @@ export default function LoginPage() {
                 </div>
                 <h1 className="text-2xl font-bold mb-2">Set Password</h1>
                 <p className="text-sm text-gray-500 mb-8">Create a secure password to finalize your account.</p>
-                
+
                 <form onSubmit={handleRegister} className="flex flex-col gap-4">
                   <div className="relative">
                     <Input
@@ -338,8 +400,8 @@ export default function LoginPage() {
                       required
                       autoFocus
                     />
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors"
                     >
@@ -347,7 +409,7 @@ export default function LoginPage() {
                     </button>
                   </div>
                   <ErrorAlert message={error} />
-                  
+
                   <Button
                     type="submit"
                     className="h-14 rounded-2xl w-full bg-black text-white text-lg font-semibold hover:bg-gray-800 transition-all mt-2"
@@ -369,7 +431,7 @@ export default function LoginPage() {
       {/* Footer Pill */}
       <div className="pb-8 flex justify-center w-full">
         <div className="flex items-center gap-4 px-6 py-2 rounded-full border border-gray-100 bg-white shadow-sm text-sm">
-          <span className="font-semibold">Pathly Education network</span>
+          <span className="font-semibold">Careero Education network</span>
           <span className="text-gray-300">|</span>
           <Link href="#" className="font-bold flex items-center gap-1 hover:text-gray-600 transition-colors">
             Learn More ↗

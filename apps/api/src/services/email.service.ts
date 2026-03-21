@@ -18,7 +18,7 @@ const createTransporter = async () => {
   // Fallback to Ethereal mock email for testing
   const testAccount = await nodemailer.createTestAccount();
   console.log('Using Ethereal mock email for SMTP.');
-  
+
   return nodemailer.createTransport({
     host: 'smtp.ethereal.email',
     port: 587,
@@ -32,11 +32,11 @@ const createTransporter = async () => {
 
 export const sendOtpEmail = async (to: string, code: string) => {
   const transporter = await createTransporter();
-  
+
   const info = await transporter.sendMail({
-    from: '"Pathly Security" <security@pathly.com>',
+    from: '"Careero Security" <security@careero.com>',
     to,
-    subject: 'Your Pathly Verification Code',
+    subject: 'Your Careero Verification Code',
     text: `Your verification code is: ${code}. It expires in 10 minutes.`,
     html: `
       <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto;">
@@ -51,6 +51,6 @@ export const sendOtpEmail = async (to: string, code: string) => {
   if (!env.SMTP_HOST) {
     console.log(`\n📧  Mock Email Sent! Preview URL: ${nodemailer.getTestMessageUrl(info)}\n`);
   }
-  
+
   return info;
 };

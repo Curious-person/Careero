@@ -10,13 +10,13 @@ import { Button } from '@/components/ui/button';
 const FloatingIcon = ({ icon: Icon, color, delay = 0, x = 0, y = 0 }: any) => (
   <motion.div
     initial={{ opacity: 0, scale: 0.5 }}
-    animate={{ 
-      opacity: 1, 
+    animate={{
+      opacity: 1,
       scale: 1,
       y: [y, y - 20, y],
       rotate: [0, 5, -5, 0]
     }}
-    transition={{ 
+    transition={{
       opacity: { duration: 0.5, delay },
       scale: { duration: 0.5, delay },
       y: { duration: 4, repeat: Infinity, ease: "easeInOut", delay },
@@ -50,12 +50,12 @@ export const Hero = () => {
             <span className="text-gray-400">the next generation.</span>
           </h1>
           <p className="text-xl text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
-            Pathly helps you discover your potential, track your progress, and connect directly with companies who actually care about your skills.
+            Careero helps you discover your potential, track your progress, and connect directly with companies who actually care about your skills.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/dashboard" className="w-full sm:w-auto">
               <Button size="lg" className="w-full sm:w-auto bg-black text-white hover:bg-gray-800 rounded-full text-lg h-14 px-8 group">
-                Join Pathly
+                Join Careero
                 <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>

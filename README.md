@@ -1,4 +1,4 @@
-# Pathly
+# Careero
 
 A modern web application built with Next.js 14, React, TypeScript, Tailwind CSS, and shadcn/ui.
 

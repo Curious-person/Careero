@@ -1,6 +1,6 @@
-# Pathly Design System
+# Careero Design System
 
-This document outlines the design principles, components, and styling guidelines for the Pathly application. All new components and pages should follow these patterns to ensure visual and functional consistency.
+This document outlines the design principles, components, and styling guidelines for the Careero application. All new components and pages should follow these patterns to ensure visual and functional consistency.
 
 ---
 
@@ -185,7 +185,7 @@ import { Button } from '@/components/ui/button';
 
 // Black button (common in landing)
 <Button className="bg-black text-white hover:bg-gray-800 rounded-full">
-  Join Pathly
+  Join Careero
 </Button>
 
 // Outline
@@ -605,5 +605,5 @@ When adding new components:
 
 ---
 
-**Last Updated:** March 20, 2026  
-**Maintained By:** Pathly Design Team
+**Last Updated:** March 20, 2026
+**Maintained By:** Careero Design Team

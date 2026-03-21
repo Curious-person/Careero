@@ -1,6 +1,6 @@
 # Continuous Integration (CI) Workflow
 
-This document explains our GitHub Actions Continuous Integration (CI) pipeline strategy for the Pathly monorepo setup.
+This document explains our GitHub Actions Continuous Integration (CI) pipeline strategy for the Careero monorepo setup.
 
 ## 🚀 Overview
 

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as profileController from '../../controllers/profile.controller';
+import { llmLimiter } from '../../middlewares/rateLimiter';
 
 const router = Router();
 
@@ -17,5 +18,9 @@ router.get('/me', profileController.getProfile);
 
 // Appends validations continuously
 router.post('/certifications/add', profileController.addCertification);
+
+// AI Resume Builder endpoints
+router.post('/resume/generate', llmLimiter, profileController.generateResume);
+router.post('/resume/save', profileController.saveResume);
 
 export default router;

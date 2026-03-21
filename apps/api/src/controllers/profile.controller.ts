@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { generateMockAcademicData, deriveSkillTags, calculatePoints } from '../services/profile.service';
 import { generateSmartRoadmap } from '../services/roadmap.service';
+import { GoogleGenAI } from "@google/genai";
+import { llmLimiter } from '../middlewares/rateLimiter';
 import { StudentProfile } from '../models/StudentProfile';
 import Tesseract from 'tesseract.js';
 import jwt from 'jsonwebtoken';
@@ -336,6 +338,127 @@ export const addCertification = async (
         ...profile.toJSON(),
         careerRoadmap
       }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 6. POST /api/v1/profile/resume/generate
+ *    Aggregates profile context and pings a local Ollama daemon (e.g. llama3) to build an ATS resume.
+ */
+export const generateResume = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const token = req.cookies?.jwt;
+    if (!token) return res.status(401).json({ message: 'Unauthorized' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
+    const profile = await StudentProfile.findOne({ user: decoded.id });
+
+    if (!profile) return res.status(404).json({ message: 'Profile not found' });
+
+    // Build the prompt context
+    const basicInfo = profile.basicInfo || {};
+    const academic = (profile.academicRecords || []).map((r: any) => `${r.subject} - ${r.grade}`).join('\n');
+    const skills = (profile.skillTags || []).map((s: any) => typeof s === 'string' ? s : s.tag).join(', ');
+    const certs = (profile.certifications || []).filter((c: any) => c.verified).map((c: any) => c.fileName).join(', ');
+
+    const prompt = `
+You are an expert ATS-friendly resume writer. Generate a strictly professional, Applicant Tracking System compliant resume in MARKDOWN format based on the following student data. 
+
+CRITICAL FORMATTING RULES:
+1. USE STANDARD SENTENCE CASE for all descriptions, summaries, and bullet points. (Example: "Managed SQL databases" NOT "MANAGED SQL DATABASES").
+2. DO NOT USE ALL-CAPS for the body text. 
+3. Use ## for section headers and * for bullet points.
+4. Do not output any thinking or meta-commentary, just output the raw resume markdown.
+
+Student Data:
+Name: ${basicInfo.firstName} ${basicInfo.lastName}
+Course: ${basicInfo.course}
+Year: ${basicInfo.yearLevel}
+
+Academic Background:
+${academic}
+
+Skills:
+${skills}
+
+Verified Certifications:
+${certs}
+
+Please format the resume with the following sections:
+- Header (Name and Contact placeholder)
+- Professional Summary (Write a short, compelling 2-sentence summary using standard sentence case)
+- Education (List their course and key academic subjects)
+- Core Competencies (List their skills)
+- Certifications & Achievements
+    `;
+
+    // Use the official @google/genai SDK for more reliable communication
+    try {
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY
+      });
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      });
+
+      const generatedMarkdown = response.text || '';
+
+      return res.status(200).json({
+        message: 'Resume generated securely via Gemini 3 Alpha',
+        data: generatedMarkdown,
+        rateLimit: (req as any).rateLimit
+      });
+
+    } catch (llmErr: any) {
+      console.error('[Gemini SDK Error]', llmErr.message);
+      return res.status(503).json({ 
+        message: 'Cloud AI Error. Please verify your GEMINI_API_KEY in apps/api/.env',
+        error: llmErr.message 
+      });
+    }
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 7. POST /api/v1/profile/resume/save
+ *    Persists the manually edited ATS resume markdown back to the profile schema.
+ */
+export const saveResume = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const token = req.cookies?.jwt;
+    if (!token) return res.status(401).json({ message: 'Unauthorized' });
+
+    const { resumeMarkdown } = req.body;
+    if (!resumeMarkdown) return res.status(400).json({ message: 'resumeMarkdown is required' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
+    const profile = await StudentProfile.findOne({ user: decoded.id });
+
+    if (!profile) return res.status(404).json({ message: 'Profile not found' });
+
+    profile.resumeMarkdown = resumeMarkdown;
+    await profile.save();
+
+    return res.status(200).json({
+      message: 'Resume saved successfully',
+      data: profile.resumeMarkdown
     });
 
   } catch (error) {

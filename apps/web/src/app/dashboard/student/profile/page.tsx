@@ -9,7 +9,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import Image from 'next/image'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
-import { Loader2, ShieldCheck, ShieldAlert, BadgeInfo, Network, Award, LayoutDashboard, Layers, Briefcase, Users, Settings, HelpCircle, ChevronRight, Eye, UploadCloud, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Loader2, ShieldCheck, ShieldAlert, BadgeInfo, Network, Award, LayoutDashboard, Layers, Briefcase, Users, Settings, HelpCircle, ChevronRight, Eye, UploadCloud, CheckCircle2, ChevronDown, ChevronUp, FileText, Download, Save, RefreshCw } from 'lucide-react'
+import { toast } from "sonner"
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts'
 
 // We force generic student navigation
@@ -30,10 +31,21 @@ export default function StudentProfilePage() {
   const [showLockedModal, setShowLockedModal] = useState(false)
   
   // Layout states
-  const [activeTab, setActiveTab] = useState<'overview' | 'skills' | 'roadmap' | 'certifications'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'skills' | 'roadmap' | 'certifications' | 'resume'>('overview')
   const [uploadingCert, setUploadingCert] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [openNode, setOpenNode] = useState<number | null>(null)
+
+  // Resume Engine States
+  const [resumeText, setResumeText] = useState('')
+  const [generatingResume, setGeneratingResume] = useState(false)
+  const [savingResume, setSavingResume] = useState(false)
+  const [isEditingResume, setIsEditingResume] = useState(false)
+
+
+  useEffect(() => {
+    if (profile?.resumeMarkdown) setResumeText(profile.resumeMarkdown)
+  }, [profile])
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -54,7 +66,35 @@ export default function StudentProfilePage() {
       setShowLockedModal(true)
     } else {
       // Normal logic
-      alert('Action fully unlocked!')
+      toast.success('Action fully unlocked!')
+    }
+  }
+
+  const handleGenerateResume = async () => {
+    setGeneratingResume(true)
+    try {
+      const res = await apiClient.post('/profile/resume/generate')
+      setResumeText(res.data.data)
+      setProfile({ ...profile, resumeMarkdown: res.data.data })
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to connect to Cloud AI Engine.')
+
+    } finally {
+      setGeneratingResume(false)
+    }
+  }
+
+  const handleSaveResume = async () => {
+    setSavingResume(true)
+    try {
+      await apiClient.post('/profile/resume/save', { resumeMarkdown: resumeText })
+      setProfile({ ...profile, resumeMarkdown: resumeText })
+      setIsEditingResume(false)
+      toast.success('Resume saved and synced for Company access!')
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to save')
+    } finally {
+      setSavingResume(false)
     }
   }
 
@@ -278,7 +318,8 @@ export default function StudentProfilePage() {
             { id: 'overview', label: 'Overview' },
             { id: 'skills', label: 'Calculated Skill Graph' },
             { id: 'roadmap', label: 'Smart Career Roadmap' },
-            { id: 'certifications', label: 'Certifications' }
+            { id: 'certifications', label: 'Certifications' },
+            { id: 'resume', label: 'AI Resume' }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -614,6 +655,182 @@ export default function StudentProfilePage() {
                         We will run an exact Zero-Shot pipeline classification over your document to augment your Smart Roadmap right now.
                       </p>
                     </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* TAB 5: AI RESUME BUILDER */}
+            {activeTab === 'resume' && (
+              <motion.div
+                key="resume"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.2 }}
+                className="print:mt-0 print:p-0"
+              >
+                <Card className="rounded-[32px] shadow-sm border-gray-100 overflow-hidden bg-white print:border-none print:shadow-none">
+                  <CardHeader className="bg-gray-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 print:hidden border-b border-gray-100">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-xl">
+                        <FileText className="w-5 h-5 text-gray-400" />
+                        AI Resume Builder
+                      </CardTitle>
+                      <CardDescription className="mt-1">
+                        Utilizing LLM Intelligence to dynamically format your ATS-compliant sheet.
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-2 mt-4 sm:mt-0 no-print">
+                      <Button onClick={handleGenerateResume} disabled={generatingResume} variant="secondary" className="font-bold rounded-xl shadow-sm bg-gray-100 hover:bg-gray-200 text-black">
+                        {generatingResume ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2 text-blue-600" />}
+                        {resumeText ? 'Regenerate via AI' : 'Generate via AI'}
+                      </Button>
+                      {resumeText && (
+                        <>
+                          <Button 
+                            onClick={() => setIsEditingResume(!isEditingResume)} 
+                            variant="outline" 
+                            className="font-bold rounded-xl shadow-sm border-gray-200"
+                          >
+                            {isEditingResume ? <Eye className="w-4 h-4 mr-2" /> : <FileText className="w-4 h-4 mr-2" />}
+                            {isEditingResume ? 'Preview' : 'Edit Mode'}
+                          </Button>
+                          <Button onClick={handleSaveResume} disabled={savingResume} className="font-bold rounded-xl shadow-sm bg-indigo-600 hover:bg-indigo-700 text-white">
+                            {savingResume ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                            Save
+                          </Button>
+                          <Button onClick={() => window.print()} variant="outline" className="font-bold rounded-xl shadow-sm border-gray-200">
+                            <Download className="w-4 h-4 mr-2 text-gray-600" />
+                            PDF
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0 bg-gray-100/30 print:bg-white print:p-0">
+                    {resumeText ? (
+                      <div className="w-full min-h-[600px] md:min-h-[800px] p-4 md:p-8 print:p-0 print:m-0 resume-print-container">
+                        {isEditingResume ? (
+                          <textarea 
+                            value={resumeText}
+                            onChange={(e) => setResumeText(e.target.value)}
+                            className="w-full h-[600px] md:h-[800px] p-8 md:p-12 border border-gray-200 rounded-[24px] shadow-sm font-mono text-sm leading-relaxed resize-none focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-300 transition-all font-mono"
+                            placeholder="Your ATS-friendly markdown resume will appear here..."
+                          />
+                        ) : (
+                          <div className="bg-white shadow-xl rounded-[24px] p-10 md:p-16 border border-gray-100 print:shadow-none print:border-none print:p-0 print:rounded-none">
+                            <div className="max-w-[800px] mx-auto space-y-8 font-sans text-gray-800 printable-resume text-left">
+                              {/* Resume Header - ATS Professional Style */}
+                              <div className="text-center space-y-2 border-b-2 border-gray-900 pb-6 mb-8">
+                                <h1 className="text-4xl font-serif font-bold text-black tracking-tight brightness-50">
+                                  {profile.basicInfo.firstName} {profile.basicInfo.lastName}
+                                </h1>
+                                <div className="text-sm font-semibold text-gray-600 flex justify-center divide-x divide-gray-300 gap-3">
+                                  <span className="px-3 tracking-wide">{profile.basicInfo.course}</span>
+                                  <span className="px-3">{profile.basicInfo.studentId}</span>
+                                  <span className="px-3">{profile.status === 'VERIFIED' ? 'Verified Target' : 'Student'}</span>
+                                </div>
+                              </div>
+
+                              {/* Advanced Markdown Parser/Renderer for ATS look */}
+                              <div className="space-y-6 text-[15px] leading-relaxed text-left">
+                                {(() => {
+                                  // Helper to strip and style inline markdown like **bold**
+                                  const formatLine = (text: string) => {
+                                    const parts = text.split(/(\*\*.*?\*\*)/g);
+                                    return parts.map((part, i) => {
+                                      if (part.startsWith('**') && part.endsWith('**')) {
+                                        return <strong key={i} className="font-bold text-gray-900">{part.slice(2, -2)}</strong>;
+                                      }
+                                      return part;
+                                    });
+                                  };
+
+                                  const lines = resumeText.split('\n');
+                                  // Skip the first few lines if they appear to be a header (Name/Contact info)
+                                  // to avoid duplication with the professional UI header we added.
+                                  let skipHeader = true;
+
+                                  return lines.reduce((acc: any[], line, idx) => {
+                                    const trimmed = line.trim();
+                                    if (!trimmed) return acc;
+
+                                    // If we are still in "skip mode", check if this is the end of the header
+                                    // Usually the first section starts with ##
+                                    if (skipHeader) {
+                                      if (trimmed.startsWith('## ')) {
+                                        skipHeader = false;
+                                      } else {
+                                        return acc; // Skip this line
+                                      }
+                                    }
+
+                                    // Header Selection (##)
+                                    if (trimmed.startsWith('## ')) {
+                                      acc.push(
+                                        <h2 key={idx} className="text-lg font-bold tracking-wide text-black border-b border-gray-200 pb-1 mt-8 mb-4">
+                                          {trimmed.replace('## ', '')}
+                                        </h2>
+                                      );
+                                    }
+                                    // Bullet points
+                                    else if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+                                      const prev = acc[acc.length - 1];
+                                      const content = formatLine(trimmed.replace(/^[*\-]\s+/, ''));
+                                      
+                                      if (prev && prev.type === 'ul') {
+                                        prev.props.children.push(<li key={idx} className="pl-1 font-normal text-gray-700">{content}</li>);
+                                      } else {
+                                        acc.push(
+                                          <ul key={idx} className="space-y-2 pl-4 list-disc marker:text-black mt-2">
+                                            {[<li key={idx} className="pl-1 font-normal text-gray-700">{content}</li>]}
+                                          </ul>
+                                        );
+                                      }
+                                    }
+                                    // Normal Paragraph
+                                    else {
+                                      acc.push(
+                                        <p key={idx} className="text-gray-700 font-normal leading-relaxed">
+                                          {formatLine(trimmed)}
+                                        </p>
+                                      );
+                                    }
+                                    return acc;
+                                  }, []);
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+
+                      <div className="w-full h-[500px] flex flex-col items-center justify-center text-center p-8 bg-white/50">
+                        <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6">
+                          {generatingResume ? (
+                            <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+                          ) : (
+                            <FileText className="w-10 h-10 text-blue-600" />
+                          )}
+                        </div>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                          {generatingResume ? 'AI Resume Builder is writing your resume...' : 'No Resume Generated Yet'}
+                        </h3>
+                        <p className="text-gray-500 max-w-md mx-auto leading-relaxed font-medium">
+                          {generatingResume 
+                            ? 'Our local language node is mapping your exact School Certifications, Skill Graph Points, and Activity into a structured Applicant Tracking System standard.'
+                            : 'Let our on-device LLM automatically extract your real skills, validated artifacts, and academic records to write the perfect foundational bullet points for you.'}
+                        </p>
+                        {!generatingResume && (
+                          <Button onClick={handleGenerateResume} className="mt-8 font-bold text-white bg-blue-600 hover:bg-blue-700 px-8 py-6 rounded-full shadow-lg shadow-blue-600/20 text-md group">
+                            <RefreshCw className="w-5 h-5 mr-3 group-hover:rotate-180 transition-transform duration-700" />
+                            Construct ATS Resume Now
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>

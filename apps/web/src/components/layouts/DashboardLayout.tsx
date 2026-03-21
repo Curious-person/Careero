@@ -60,7 +60,7 @@ export default function DashboardLayout({ children, navigation: navProp }: Dashb
       <aside className={`
         fixed top-0 left-0 z-50 h-screen bg-background border-r
         transform transition-all duration-300 ease-in-out
-        lg:translate-x-0
+        lg:translate-x-0 no-print
         ${sidebarCollapsed ? "w-20" : "w-64"}
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
       `}>
@@ -151,7 +151,7 @@ export default function DashboardLayout({ children, navigation: navProp }: Dashb
       {/* Main content */}
       <div className={`transition-all duration-300 ease-in-out ${sidebarCollapsed ? "lg:pl-20" : "lg:pl-64"}`}>
         {/* Top header */}
-        <header className="sticky top-0 z-30 h-16 bg-background/80 backdrop-blur border-b">
+        <header className="sticky top-0 z-30 h-16 bg-background/80 backdrop-blur border-b no-print">
           <div className="flex items-center justify-between h-full px-4">
             <button
               type="button"

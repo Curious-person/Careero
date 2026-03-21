@@ -35,9 +35,9 @@ const createTransporter = async () => {
 const sendOtpEmail = async (to, code) => {
     const transporter = await createTransporter();
     const info = await transporter.sendMail({
-        from: '"Pathly Security" <security@pathly.com>',
+        from: '"Careero Security" <security@careero.com>',
         to,
-        subject: 'Your Pathly Verification Code',
+        subject: 'Your Careero Verification Code',
         text: `Your verification code is: ${code}. It expires in 10 minutes.`,
         html: `
       <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto;">

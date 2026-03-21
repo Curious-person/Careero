@@ -15,29 +15,29 @@ export default function LandingPage() {
   return (
     <div className="selection:bg-brand-blue selection:text-white min-h-screen">
       <Navbar />
-      
+
       <main>
         <Hero />
-        
+
         <FeatureGrid />
-        
-        <MockupSection 
+
+        <MockupSection
           title="Level up your skills, every single day."
           subtitle="Track Progress"
           description="Our interactive dashboard gives you a bird's eye view of your professional growth. See where you excel and exactly how many points you need for that dream internship."
           color="text-brand-blue"
         />
 
-        <MockupSection 
+        <MockupSection
           title="Direct matches to open internships."
           subtitle="Connect"
-          description="Skip the cold emails. Pathly automatically matches your verified school milestones with companies actively looking for your exact skillset."
+          description="Skip the cold emails. Careero automatically matches your verified school milestones with companies actively looking for your exact skillset."
           color="text-brand-green"
           reverse
         />
 
         <BlogSection />
-        
+
         <DetailsSection />
 
         {/* Final CTA */}
@@ -52,7 +52,7 @@ export default function LandingPage() {
             <div className="relative z-10">
               <h2 className="text-4xl md:text-6xl font-bold mb-8">Ready to start <br />your journey?</h2>
               <p className="text-xl text-gray-400 mb-12 max-w-xl mx-auto">
-                Join thousands of students building their verified skillset with Pathly.
+                Join thousands of students building their verified skillset with Careero.
               </p>
               <Link href="/dashboard">
                 <button className="bg-white text-black px-10 py-5 rounded-full text-xl font-bold hover:bg-gray-100 transition-all active:scale-95">

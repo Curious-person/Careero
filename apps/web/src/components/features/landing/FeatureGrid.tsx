@@ -6,7 +6,7 @@ export const FeatureGrid = () => {
     <section id="features" className="py-24 bg-white relative z-10">
       <div className="max-w-7xl mx-auto px-6">
         <div className="mb-16 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">Explore Pathly in a <br />whole new way.</h2>
+          <h2 className="text-4xl md:text-5xl font-bold mb-4">Explore Careero in a <br />whole new way.</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">

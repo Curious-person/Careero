@@ -569,5 +569,5 @@ src/
 
 ---
 
-**Last Updated:** March 20, 2026  
-**Maintained By:** Pathly Design Team
+**Last Updated:** March 20, 2026
+**Maintained By:** Careero Design Team

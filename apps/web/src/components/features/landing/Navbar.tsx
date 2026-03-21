@@ -27,7 +27,7 @@ export const Navbar = () => {
           <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
             <Rocket className="text-white w-5 h-5" />
           </div>
-          <span className="text-xl font-bold tracking-tight">Pathly</span>
+          <span className="text-xl font-bold tracking-tight">Careero</span>
         </div>
 
         <div className="hidden md:flex items-center gap-8">

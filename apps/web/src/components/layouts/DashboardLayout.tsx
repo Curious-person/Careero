@@ -3,15 +3,17 @@
 import { Button } from "@/components/ui/button"
 import { logoutSession } from "@/lib/apiClient"
 import {
+  LayoutDashboard,
+  Settings,
+  Users,
+  FileText,
+  Menu,
+  X,
+  LogOut,
   Bell,
   ChevronLeft,
   ChevronRight,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  Settings,
-  Users,
-  X
+  Briefcase
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -36,9 +38,10 @@ export default function DashboardLayout({ children, navigation: navProp }: Dashb
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const defaultNavigation: NavItem[] = [
-    { name: "Dashboard", href: "/dashboard/company/dashboard", icon: LayoutDashboard },
-    { name: "Team", href: "/dashboard/company/team", icon: Users },
-    { name: "Settings", href: "/dashboard/company/settings", icon: Settings },
+    { name: "Dashboard", href: "/dashboard/company", icon: LayoutDashboard },
+    { name: "Applicants", href: "/applicants/company", icon: Briefcase },
+    { name: "Team", href: "/team/company", icon: Users },
+    { name: "Settings", href: "/settings/company", icon: Settings },
   ]
 
   const navigation = navProp ?? defaultNavigation
@@ -66,7 +69,7 @@ export default function DashboardLayout({ children, navigation: navProp }: Dashb
           <div className="flex items-center justify-between h-16 px-4 border-b">
             {!sidebarCollapsed && (
               <Link href="/" className="text-xl font-bold text-primary">
-                Pathly
+                Careero
               </Link>
             )}
             <div className="flex items-center gap-2">

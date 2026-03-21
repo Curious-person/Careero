@@ -9,14 +9,16 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import Image from 'next/image'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
-import { Loader2, ShieldCheck, ShieldAlert, BadgeInfo, Network, Award, LayoutDashboard, Users, Settings, HelpCircle, ChevronRight, Eye } from 'lucide-react'
+import { Loader2, ShieldCheck, ShieldAlert, BadgeInfo, Network, Award, LayoutDashboard, Layers, Briefcase, Users, Settings, HelpCircle, ChevronRight, Eye, UploadCloud, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts'
 
 // We force generic student navigation
 const studentNavigation = [
-  { name: "Dashboard", href: "/dashboard/student", icon: LayoutDashboard },
-  { name: "My Profile", href: "/dashboard/student/profile", icon: Users },
-  { name: "Settings", href: "/dashboard/student/settings", icon: Settings },
+  { name: 'Overview', href: '/dashboard/student', icon: LayoutDashboard },
+
+  { name: 'Accumulations', href: '/dashboard/student/accumulations', icon: Layers },
+  { name: 'Offers', href: '/dashboard/student/offers', icon: Briefcase },
+    { name: 'My Profile', href: '/dashboard/student/profile', icon: Users },
 ]
 
 export default function StudentProfilePage() {
@@ -26,6 +28,12 @@ export default function StudentProfilePage() {
 
   // State for the locked modal
   const [showLockedModal, setShowLockedModal] = useState(false)
+  
+  // Layout states
+  const [activeTab, setActiveTab] = useState<'overview' | 'skills' | 'roadmap' | 'certifications'>('overview')
+  const [uploadingCert, setUploadingCert] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [openNode, setOpenNode] = useState<number | null>(null)
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -49,6 +57,65 @@ export default function StudentProfilePage() {
       alert('Action fully unlocked!')
     }
   }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Please upload a valid image file (PNG, JPG, WebP). PDFs and other documents are not currently supported by our OCR engine.');
+      // Clear the invalid input so they can click again
+      e.target.value = '';
+      return;
+    }
+
+    setUploadingCert(true);
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
+        const base64String = reader.result as string;
+
+        // 1. Process OCR & Labels
+        const studentName = profile?.basicInfo 
+          ? `${profile.basicInfo.firstName} ${profile.basicInfo.lastName}`.trim().toLowerCase() 
+          : '';
+
+        const ocrRes = await apiClient.post('/profile/ocr-upload', { 
+          imageBase64: base64String,
+          studentName 
+        });
+        const { ocrText, classification } = ocrRes.data;
+
+        // Calculate dynamic points using the AI's confidence map!
+        const maxScore = Math.max(...(classification?.scores || [0.5]));
+        const dynamicPoints = Math.round(maxScore * 100);
+
+        // 2. Append to Profile explicitly
+        const addRes = await apiClient.post('/profile/certifications/add', {
+          certification: {
+            fileName: file.name,
+            fileData: base64String,
+            ocrText,
+            classification,
+            verified: true,
+            awardedPoints: dynamicPoints
+          }
+        });
+
+        // 3. Hot swap the whole profile UI state so points adjust immediately!
+        setProfile(addRes.data.data);
+      } catch (err: any) {
+        const serverMsg = err.response?.data?.message || err.message;
+        setUploadError(serverMsg);
+      } finally {
+        setUploadingCert(false);
+        // Clear input to allow re-uploading the same file if needed
+        e.target.value = '';
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   if (loading) {
     return (
@@ -80,51 +147,21 @@ export default function StudentProfilePage() {
   // Based STRICTLY on the actual exact points from the Profile Calculation.
 
   // Precisely map the exact weighted contribution points.
-  const academicScore = profile.pointsBreakdown?.academic || 0;
-  const certScore = profile.pointsBreakdown?.cert || 0;
-  const extraScore = profile.pointsBreakdown?.achievement || 0;
-  const accumulationsScore = 0; // Currently 0, locked behind Company Challenges
-  
-  // Deriving Hard Skills vs Soft Skills from Tags explicitly for visual mapping context
   const isSoftSkill = (tag: string) => ['leadership', 'agile', 'scrum', 'communication', 'teamwork'].includes(tag.toLowerCase());
-  const hardSkillsCount = profile.skillTags.filter((t: string) => !isSoftSkill(t)).length;
-  const softSkillsCount = profile.skillTags.filter((t: string) => isSoftSkill(t)).length;
+  const hardSkillsCount = profile.skillTags.filter((s: any) => !isSoftSkill(typeof s === 'string' ? s : s.tag)).length;
+  const softSkillsCount = profile.skillTags.filter((s: any) => isSoftSkill(typeof s === 'string' ? s : s.tag)).length;
   
   const hardSkillsScore = profile.pointsBreakdown?.hardSkills || 0; 
   const softSkillsScore = profile.pointsBreakdown?.softSkills || 0; 
 
-  const radarData = [
-    { 
-      subject: 'ACADEMICS', 
-      score: academicScore, 
-      desc: `Exact Grade Points (Max 40): ${academicScore} PTS from synced records.` 
-    },
-    { 
-      subject: 'CERTIFICATIONS', 
-      score: certScore, 
-      desc: `Exact Certificate Points (Max 30): ${certScore} PTS derived from completed AI validations.` 
-    },
-    { 
-      subject: 'ACCUMULATIONS', 
-      score: accumulationsScore, 
-      desc: `Current Value: ${accumulationsScore} PTS. Complete institutional verification to unlock Company Challenges.` 
-    },
-    { 
-      subject: 'EXTRACURRICULAR', 
-      score: extraScore, 
-      desc: `Exact Extracurricular Points (Max 20): ${extraScore} PTS.` 
-    },
-    { 
-      subject: 'HARD SKILLS', 
-      score: hardSkillsScore, 
-      desc: `Exact Technical Points (Max 20): ${hardSkillsScore} PTS mapped from ${hardSkillsCount} explicit technical keywords.` 
-    },
-    { 
-      subject: 'SOFT SKILLS', 
-      score: softSkillsScore, 
-      desc: `Exact Interpersonal Points (Max 10): ${softSkillsScore} PTS mapped from ${softSkillsCount} abstract behavioural tags.` 
-    },
-  ];
+  const radarData = profile ? [
+    { subject: 'Academic Rating', score: profile.pointsBreakdown?.academic || 0, fullMark: 1000, desc: 'Weighted GPA from university courses.', details: profile.academicRecords.map((r: any) => ({ label: r.subject, value: `${r.grade} Grade` })) },
+    { subject: 'Valid Certs', score: profile.pointsBreakdown?.cert || 0, fullMark: 1000, desc: 'Validated external credentials.', details: profile.certifications.filter((c: any) => c.verified).map((c: any) => ({ label: c.classification?.labels?.[0] || 'Verification', value: `${c.awardedPoints} pts` })) },
+    { subject: 'Accumulations', score: profile.pointsBreakdown?.accumulations || 0, fullMark: 1000, desc: 'Bounty & hackathon performance.', details: [] },
+    { subject: 'Extracurricular', score: profile.pointsBreakdown?.achievement || 0, fullMark: 1000, desc: 'Leadership & club participation awards.', details: [] },
+    { subject: 'Hard Skills', score: profile.pointsBreakdown?.hardSkills || 0, fullMark: 1000, desc: `${hardSkillsCount} technical capabilities strictly mapped.`, details: profile.skillTags.filter((t: any) => t.tag && !['leadership', 'communication', 'teamwork', 'agile', 'scrum'].includes(t.tag.toLowerCase())).map((t: any) => ({ label: typeof t === 'string' ? t : t.tag, value: typeof t === 'string' ? '100%' : `${Math.round(t.confidence * 100)}% Confidence` })) },
+    { subject: 'Soft Skills', score: profile.pointsBreakdown?.softSkills || 0, fullMark: 1000, desc: `${softSkillsCount} interpersonal strengths verified.`, details: profile.skillTags.filter((t: any) => t.tag && ['leadership', 'communication', 'teamwork', 'agile', 'scrum'].includes(t.tag.toLowerCase())).map((t: any) => ({ label: typeof t === 'string' ? t : t.tag, value: typeof t === 'string' ? '100%' : `${Math.round(t.confidence * 100)}% Confidence` })) }
+  ] : []
 
   return (
     <DashboardLayout navigation={studentNavigation}>
@@ -169,12 +206,16 @@ export default function StudentProfilePage() {
               {profile.basicInfo.course} {profile.basicInfo.section && `- ${profile.basicInfo.section}`} • {profile.basicInfo.yearLevel} • {profile.basicInfo.studentId}
             </p>
             <div className="flex flex-wrap gap-2 mt-4">
-              {profile.skillTags.map((tag: string) => (
-                <span key={tag} className="px-3 py-1 bg-black text-white text-xs font-semibold rounded-full">
-                  #{tag}
-                </span>
-              ))}
-            </div>
+                    {profile.skillTags?.map((skill: any, i: number) => {
+                      // Handle old format (string) or new format ({ tag, confidence })
+                      const tagString = typeof skill === 'string' ? skill : skill.tag;
+
+                      return (
+                        <div key={i} className="px-3 py-1.5 bg-black text-white text-xs font-bold rounded-full inline-flex items-center shadow-sm">
+                          #{tagString}
+                        </div>
+                      )
+                    })}       </div>
           </div>
 
           <div className="text-right">
@@ -231,136 +272,354 @@ export default function StudentProfilePage() {
           </div>
         </div>
 
-        {/* Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Skill Tree (Mock View) */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card className="rounded-[32px] shadow-sm border-gray-100 overflow-hidden">
-              <CardHeader className="bg-gray-50/50">
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <Network className="w-5 h-5 text-gray-400" />
-                  Calculated Skill Graph
-                </CardTitle>
-                <CardDescription>Visual map of your mapped academic and AI-certified tags.</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="flex flex-col md:flex-row h-auto md:h-80">
-                  {/* Left: Recharts SVG Hexagon */}
-                  <div className="w-full md:w-3/5 h-72 md:h-full p-4 relative">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
-                        <PolarGrid stroke="#E5E7EB" />
-                        <PolarAngleAxis dataKey="subject" tick={{ fill: '#6B7280', fontSize: 10, fontWeight: 700 }} />
-                        <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={false} axisLine={false} />
-                        <Radar
-                          name="Competency"
-                          dataKey="score"
-                          stroke="#007AFF"
-                          fill="#007AFF"
-                          fillOpacity={0.15}
-                          strokeWidth={2}
-                          dot={{ r: 3, fill: '#007AFF', strokeWidth: 2 }}
-                        />
-                      </RadarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  
-                  {/* Right: Scrollable Breakdown Panel spanning full height */}
-                  <div className="w-full md:w-2/5 h-64 md:h-full border-t md:border-t-0 md:border-l border-gray-100 bg-gray-50/30 overflow-y-auto">
-                    <div className="p-5 space-y-4">
-                      {radarData.map((node, i) => (
-                        <div key={i} className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="text-xs font-bold text-gray-900 tracking-wider">{node.subject}</span>
-                            <span className="text-xs font-black text-brand-blue">{node.score} PTS</span>
-                          </div>
-                          <p className="text-[11px] text-gray-500 leading-relaxed font-medium">
-                            {node.desc}
-                          </p>
+        {/* Navigation Tabs */}
+        <div className="flex bg-gray-50/50 p-1.5 rounded-full border border-gray-100 max-w-2xl overflow-x-auto hide-scrollbar">
+          {[
+            { id: 'overview', label: 'Overview' },
+            { id: 'skills', label: 'Calculated Skill Graph' },
+            { id: 'roadmap', label: 'Smart Career Roadmap' },
+            { id: 'certifications', label: 'Certifications' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`relative flex-1 px-4 py-3 text-sm font-bold tracking-tight rounded-full transition-colors whitespace-nowrap ${
+                activeTab === tab.id ? 'text-black' : 'text-gray-500 hover:text-black'
+              }`}
+            >
+              {activeTab === tab.id && (
+                <motion.div
+                  layoutId="activeTab"
+                  className="absolute inset-0 bg-white shadow-sm border border-gray-100 rounded-full"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                />
+              )}
+              <span className="relative z-10">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Dynamic Tab Content Area */}
+        <div className="min-h-[500px]">
+          <AnimatePresence mode="wait">
+            
+            {/* TAB 1: OVERVIEW */}
+            {activeTab === 'overview' && (
+              <motion.div
+                key="overview"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.2 }}
+                className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+              >
+                {/* Academic Transcripts */}
+                <Card className="rounded-[32px] shadow-sm border-gray-100">
+                  <CardHeader>
+                    <CardTitle className="text-xl">Academic Transcripts</CardTitle>
+                    <CardDescription>Mapped historically from your University.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {profile.academicRecords.slice(0, 6).map((r: any, i: number) => (
+                        <div key={i} className="flex justify-between items-center bg-gray-50/50 p-4 rounded-2xl border border-gray-50">
+                          <span className="text-gray-900 font-bold truncate mr-4">{r.subject}</span>
+                          <span className="px-3 py-1 bg-white border border-gray-100 rounded-full font-black text-brand-blue shadow-sm">
+                            {r.grade}
+                          </span>
                         </div>
                       ))}
+                      {profile.academicRecords.length > 6 && (
+                        <div className="text-center pt-2">
+                          <span className="px-4 py-2 bg-gray-50 text-xs text-gray-400 font-bold uppercase tracking-wider rounded-full">
+                            +{profile.academicRecords.length - 6} More Subjects
+                          </span>
+                        </div>
+                      )}
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* Company Accumulations */}
+                <Card className="rounded-[32px] shadow-sm border-gray-100 bg-black text-white h-fit">
+                  <CardHeader>
+                    <CardTitle className="text-2xl text-white">Company Accumulations</CardTitle>
+                    <CardDescription className="text-gray-400">Locked behind institutional verification.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pb-8">
+                    <p className="text-gray-300 leading-relaxed mb-8">
+                      Participate in real-world technical bounties, hackathons, and design sprints hosted directly by partner companies tracking your Skill Graph.
+                    </p>
+                    <Button onClick={handleRestrictedAction} className="rounded-full bg-white text-black hover:bg-gray-100 w-full h-12 font-bold group">
+                      Browse Challenges <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* TAB 2: SKILL GRAPH */}
+            {activeTab === 'skills' && (
+              <motion.div
+                key="skills"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Card className="rounded-[32px] shadow-sm border-gray-100 overflow-hidden">
+                  <CardHeader className="bg-gray-50/50">
+                    <CardTitle className="flex items-center gap-2 text-xl">
+                      <Network className="w-5 h-5 text-gray-400" />
+                      Calculated Skill Graph
+                    </CardTitle>
+                    <CardDescription>Visual map calculated strictly from your validated {profile.skillTags.length} abilities.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="flex flex-col md:flex-row h-auto md:h-[450px]">
+                      {/* Left: Recharts SVG Hexagon */}
+                      <div className="w-full md:w-[55%] h-80 md:h-full p-4 relative flex items-center justify-center">
+                        <ResponsiveContainer width="100%" height="90%">
+                          <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
+                            <PolarGrid stroke="#E5E7EB" />
+                            <PolarAngleAxis dataKey="subject" tick={{ fill: '#6B7280', fontSize: 11, fontWeight: 700 }} />
+                            <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={false} axisLine={false} />
+                            <Radar
+                              name="Competency"
+                              dataKey="score"
+                              stroke="#007AFF"
+                              fill="#007AFF"
+                              fillOpacity={0.15}
+                              strokeWidth={3}
+                              dot={{ r: 4, fill: '#007AFF', strokeWidth: 2 }}
+                            />
+                          </RadarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      
+                      {/* Right: Scrollable Breakdown Panel with Accordion */}
+                      <div className="w-full md:w-[45%] h-[350px] md:h-full border-t md:border-t-0 md:border-l border-gray-100 bg-gray-50/30 overflow-y-auto">
+                        <div className="p-6 space-y-4">
+                          {radarData.map((node, i) => (
+                            <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-all duration-300">
+                              <button 
+                                onClick={() => setOpenNode(openNode === i ? null : i)}
+                                className="w-full text-left p-4 flex justify-between items-center group hover:bg-gray-50/80 transition-colors"
+                              >
+                                <div>
+                                  <span className="text-sm font-bold text-gray-900 tracking-wider flex items-center gap-2">
+                                    {node.subject}
+                                    {openNode === i ? 
+                                      <ChevronUp className="w-4 h-4 text-gray-400" /> : 
+                                      <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-black transition-colors" />
+                                    }
+                                  </span>
+                                  <p className="text-xs text-gray-500 leading-relaxed font-medium mt-1">
+                                    {node.desc}
+                                  </p>
+                                </div>
+                                <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-black shrink-0">
+                                  {node.score} PTS
+                                </span>
+                              </button>
+                              
+                              <AnimatePresence>
+                                {openNode === i && node.details && node.details.length > 0 && (
+                                  <motion.div 
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="px-4 pb-4 pt-2 border-t border-gray-50 bg-gray-50/50"
+                                  >
+                                    <div className="flex flex-col gap-2">
+                                      {node.details.map((dt: any, idx: number) => (
+                                        <div key={idx} className="flex justify-between items-center w-full bg-white px-3 py-2 rounded-lg border border-gray-100 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                                          <span className="text-xs font-bold text-gray-800 capitalize truncate max-w-[150px]">{dt.label}</span>
+                                          <span className="text-[10px] font-black text-blue-800 uppercase tracking-widest bg-blue-100/50 px-2 py-1 rounded">
+                                            {dt.value}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* TAB 3: SMART CAREER ROADMAP */}
+            {activeTab === 'roadmap' && (
+              <motion.div
+                key="roadmap"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.2 }}
+              >
+                {profile.careerRoadmap ? (
+                  <Card className="rounded-[32px] shadow-sm border-blue-200 bg-gradient-to-br from-blue-50/50 to-white overflow-hidden">
+                    <CardHeader className="p-8">
+                      <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-6">
+                        <div>
+                          <CardTitle className="text-2xl text-black flex items-center gap-2 mb-2">
+                            <Network className="w-6 h-6 text-blue-600" />
+                            Smart Career Roadmap
+                          </CardTitle>
+                          <CardDescription className="text-base">
+                            Algorithmically calculated using {profile.skillTags.length} dynamic capability strings to forge your fastest route to hire.
+                          </CardDescription>
+                        </div>
+                        <div className="md:text-right bg-white p-4 rounded-2xl border border-blue-100 shadow-sm min-w-[200px]">
+                          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Target Role</p>
+                          <p className="text-xl font-black text-blue-600 leading-tight">{profile.careerRoadmap.targetRole}</p>
+                          <div className="mt-2 w-full bg-blue-50 h-2 rounded-full overflow-hidden">
+                            <div className="bg-blue-600 h-full rounded-full" style={{ width: `${profile.careerRoadmap.matchPercentage}%` }} />
+                          </div>
+                          <p className="text-[10px] font-bold text-blue-800 mt-2 tracking-widest uppercase">
+                            {profile.careerRoadmap.matchPercentage}% Match Alignment
+                          </p>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="px-8 pb-8">
+                      <div className="space-y-4">
+                        {profile.careerRoadmap.roadmap.map((step: any, i: number) => (
+                          <div key={i} className="flex gap-6 p-6 bg-white rounded-[24px] border border-gray-100 shadow-sm relative group hover:-translate-y-1 transition-transform">
+                            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-black text-xl z-10 shadow-lg shadow-blue-600/20">
+                              {step.step}
+                            </div>
+                            {i !== profile.careerRoadmap.roadmap.length - 1 && (
+                              <div className="absolute left-12 top-16 bottom-[-24px] w-[3px] bg-blue-100 group-hover:bg-blue-200 transition-colors" />
+                            )}
+                            <div className="pt-1">
+                              <h4 className="font-bold text-lg text-gray-900 mb-1">{step.title}</h4>
+                              <p className="text-base text-gray-500 leading-relaxed">{step.description}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="p-12 text-center bg-gray-50 rounded-[32px] border border-gray-100 border-dashed">
+                    <p className="text-gray-500 font-medium">Roadmap engine is currently calibrating your metrics.</p>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-[32px] shadow-sm border-gray-100 overflow-hidden">
-              <CardHeader className="bg-gray-50/50 flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-xl text-black">Company Accumulations</CardTitle>
-                  <CardDescription>Locked behind institutional verification.</CardDescription>
-                </div>
-                <Button variant="outline" onClick={handleRestrictedAction} className="rounded-full">
-                  Browse Challenges
-                </Button>
-              </CardHeader>
-            </Card>
-          </div>
-
-          {/* Sidebar Modules */}
-          <div className="space-y-6">
-            {/* Certifications & Badges */}
-            <Card className="rounded-[32px] shadow-sm border-gray-100">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Award className="w-5 h-5 text-gray-400" />
-                  Valid Certifications
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {profile.certifications.length === 0 && (
-                  <p className="text-sm text-gray-500 italic">No certificates attached during onboarding.</p>
                 )}
-                {profile.certifications.map((cert: any, i: number) => (
-                  <div key={i} className="flex justify-between items-center bg-gray-50 rounded-xl p-3 border border-gray-100">
-                    <div className="overflow-hidden">
-                      <p className="text-sm font-bold text-gray-900 truncate">{cert.fileName}</p>
-                      <p className="text-xs text-brand-blue font-medium mt-1 line-clamp-1 italic max-w-[200px]">
-                        &quot;{cert.ocrText}&quot;
+              </motion.div>
+            )}
+
+            {/* TAB 4: CERTIFICATIONS & UPLOADS */}
+            {activeTab === 'certifications' && (
+              <motion.div
+                key="certifications"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.2 }}
+                className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+              >
+                {/* Visual Validations Log */}
+                <Card className="rounded-[32px] shadow-sm border-gray-100">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-xl">
+                      <Award className="w-5 h-5 text-brand-orange" />
+                      Valid Certifications
+                    </CardTitle>
+                    <CardDescription>Documents historically analyzed by the AI engine.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {profile.certifications.length === 0 && (
+                      <p className="text-sm text-gray-500 italic">No certificates attached yet.</p>
+                    )}
+                    {profile.certifications.map((cert: any, i: number) => (
+                      <div key={i} className="flex justify-between items-center bg-gray-50 hover:bg-gray-100 transition-colors rounded-2xl p-4 border border-gray-100">
+                        <div className="overflow-hidden pr-4">
+                          <p className="text-sm font-bold text-gray-900 truncate flex items-center gap-2">
+                            {cert.fileName}
+                            {cert.verified && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                          </p>
+                          <p className="text-xs text-brand-blue font-medium mt-1 line-clamp-1 italic">
+                            &quot;{cert.ocrText}&quot;
+                          </p>
+                        </div>
+                        {cert.fileData && (
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-10 w-10 bg-white shadow-sm border border-gray-100 rounded-full text-gray-400 hover:text-brand-blue shrink-0">
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-xl p-0 overflow-hidden bg-transparent border-0 rounded-[24px]">
+                              <Image src={cert.fileData} alt={cert.fileName} width={800} height={600} className="w-full h-auto object-contain bg-black/90 backdrop-blur-xl" unoptimized />
+                            </DialogContent>
+                          </Dialog>
+                        )}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                {/* Secure File Upload Zone */}
+                <Card className="rounded-[32px] shadow-sm border-brand-blue/20 bg-blue-50/30 overflow-hidden h-fit relative text-center">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-xl">Upload New Artifact</CardTitle>
+                    <CardDescription>Process external validation continuously.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pb-8 space-y-4">
+                    
+                    {/* UI Rejection Banner */}
+                    <AnimatePresence>
+                      {uploadError && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="bg-red-50 border border-red-100 text-red-800 p-4 rounded-2xl flex items-start gap-3 shadow-sm text-left mb-2">
+                            <ShieldAlert className="w-5 h-5 mt-0.5 shrink-0 text-red-600" />
+                            <p className="text-sm font-medium leading-relaxed">{uploadError}</p>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <div className="border-2 border-dashed border-blue-200 bg-white rounded-3xl p-8 hover:border-blue-400 transition-colors relative">
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleFileUpload} 
+                        disabled={uploadingCert}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                      />
+                      <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-brand-blue">
+                        {uploadingCert ? (
+                          <Loader2 className="w-8 h-8 animate-spin" />
+                        ) : (
+                          <UploadCloud className="w-8 h-8" />
+                        )}
+                      </div>
+                      <h3 className="font-bold mb-2">
+                        {uploadingCert ? 'Xenova AI Processing...' : 'Tap to select an image'}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        We will run an exact Zero-Shot pipeline classification over your document to augment your Smart Roadmap right now.
                       </p>
                     </div>
-                    {cert.fileData && (
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-brand-blue shrink-0">
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-xl p-0 overflow-hidden bg-transparent border-0 rounded-[24px]">
-                          <Image src={cert.fileData} alt={cert.fileName} width={800} height={600} className="w-full h-auto object-contain bg-black/90 backdrop-blur-xl" unoptimized />
-                        </DialogContent>
-                      </Dialog>
-                    )}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-            
-            <Card className="rounded-[32px] shadow-sm border-gray-100">
-              <CardHeader>
-                <CardTitle className="text-lg">Academic Transcripts</CardTitle>
-                <CardDescription>Mapped by University</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {profile.academicRecords.slice(0, 4).map((r: any, i: number) => (
-                    <div key={i} className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600 truncate mr-2">{r.subject}</span>
-                      <span className="font-bold">{r.grade}</span>
-                    </div>
-                  ))}
-                  {profile.academicRecords.length > 4 && (
-                    <div className="text-center pt-2">
-                      <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">+{profile.academicRecords.length - 4} More</span>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
 
-          </div>
+          </AnimatePresence>
         </div>
 
       </motion.div>

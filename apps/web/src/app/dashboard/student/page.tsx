@@ -1,177 +1,304 @@
 "use client"
 
+import { useEffect, useState } from 'react'
+import { apiClient } from '@/lib/apiClient'
 import DashboardLayout from "@/components/layouts/DashboardLayout"
-import { LayoutDashboard, Settings } from "lucide-react"
+import { Layers, Briefcase, Trophy, CheckCircle, Activity, LayoutDashboard, Users, Settings, ArrowRight, ShieldCheck, MapPin, Network, Loader2, ShieldAlert, Award } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowUpRight, Plus, TrendingUp, Users, FileText, CheckCircle } from "lucide-react"
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts'
+
+const studentNavigation = [
+  { name: 'Overview', href: '/dashboard/student', icon: LayoutDashboard },
+  { name: 'Accumulations', href: '/dashboard/student/accumulations', icon: Layers },
+  { name: 'Offers', href: '/dashboard/student/offers', icon: Briefcase },
+    { name: 'My Profile', href: '/dashboard/student/profile', icon: Users },
+]
 
 export default function DashboardPage() {
-  const studentNavigation = [
-    { name: "Dashboard", href: "/dashboard/student", icon: LayoutDashboard },
-    { name: "My Profile", href: "/dashboard/student/profile", icon: Users },
-    { name: "Settings", href: "/dashboard/student/settings", icon: Settings },
-  ]
+  const [profile, setProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const { data } = await apiClient.get('/profile/me')
+        setProfile(data.data)
+      } catch (err: any) {
+        setError('Failed to load profile. Please complete onboarding.')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchProfile()
+  }, [])
+
+  if (loading) {
+    return (
+      <DashboardLayout navigation={studentNavigation}>
+        <div className="flex h-[80vh] items-center justify-center">
+          <Loader2 className="w-10 h-10 animate-spin text-gray-300" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (error || !profile) {
+    return (
+      <DashboardLayout navigation={studentNavigation}>
+        <div className="flex h-[80vh] items-center justify-center">
+          <div className="text-center">
+            <ShieldAlert className="w-12 h-12 text-red-400 mx-auto mb-4" />
+            <h2 className="text-xl font-bold mb-2">Profile Locked</h2>
+            <p className="text-gray-500">{error}</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // --- Real Radar Data Calculation ---
+  const isSoftSkill = (tag: string) => ['leadership', 'agile', 'scrum', 'communication', 'teamwork'].includes(tag.toLowerCase());
+  const hardSkillsCount = profile.skillTags.filter((s: any) => !isSoftSkill(typeof s === 'string' ? s : s.tag)).length;
+  const softSkillsCount = profile.skillTags.filter((s: any) => isSoftSkill(typeof s === 'string' ? s : s.tag)).length;
+  
+  const radarData = profile ? [
+    { subject: 'Academic', score: profile.pointsBreakdown?.academic || 0, fullMark: 1000 },
+    { subject: 'Valid Certs', score: profile.pointsBreakdown?.cert || 0, fullMark: 1000 },
+    { subject: 'Accumulations', score: profile.pointsBreakdown?.accumulations || 0, fullMark: 1000 },
+    { subject: 'Extracurricular', score: profile.pointsBreakdown?.achievement || 0, fullMark: 1000 },
+    { subject: 'Hard Skills', score: profile.pointsBreakdown?.hardSkills || 0, fullMark: 1000 },
+    { subject: 'Soft Skills', score: profile.pointsBreakdown?.softSkills || 0, fullMark: 1000 }
+  ] : []
+
+  // Dynamic KPI Stats
+  const totalVerifiedCerts = profile.certifications?.filter((c: any) => c.verified).length || 0;
 
   return (
     <DashboardLayout navigation={studentNavigation}>
-      <div className="space-y-6">
+      <div className="max-w-7xl mx-auto space-y-8 pb-12">
+        
         {/* Page header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Welcome back! Here&apos;s an overview of your projects.
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900">Student Overview</h1>
+            <p className="text-gray-500 mt-1">
+              Welcome back, <span className="font-bold text-gray-900">{profile.basicInfo.firstName}</span>. Monitor your holistic path trajectory below.
             </p>
           </div>
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-            New Project
-          </Button>
+          {/* Removed Upload Artifact button as requested */}
         </div>
 
-        {/* Stats cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* Dynamic KPIs connected to real profile! */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
-            title="Total Projects"
-            value="12"
-            description="2 new this month"
-            icon={FileText}
-            trend="+20%"
+            title="Total Skill Points"
+            value={profile.totalPoints.toLocaleString()}
+            description="Overall calculated trajectory"
+            icon={Trophy}
+            iconColor="text-yellow-600"
+            iconBg="bg-yellow-100"
+            trend="+0 this week"
             trendUp={true}
           />
           <StatCard
-            title="Active Tasks"
-            value="48"
-            description="8 completed today"
-            icon={CheckCircle}
-            trend="+12%"
-            trendUp={true}
-          />
-          <StatCard
-            title="Team Members"
+            title="Unlocked Offers"
             value="24"
-            description="3 new this week"
-            icon={Users}
-            trend="+15%"
+            description="Based on Match Score"
+            icon={Briefcase}
+            iconColor="text-indigo-600"
+            iconBg="bg-indigo-100"
+            trend="5 new matches"
             trendUp={true}
           />
           <StatCard
-            title="Productivity"
-            value="94%"
-            description="Above average"
-            icon={TrendingUp}
-            trend="+5%"
+            title="Active Accumulations"
+            value="3"
+            description="In progress tasks"
+            icon={Layers}
+            iconColor="text-blue-600"
+            iconBg="bg-blue-100"
+            trend="1 closing soon"
+            trendUp={false}
+          />
+          <StatCard
+            title="Verified Artifacts"
+            value={totalVerifiedCerts.toString()}
+            description="AI-Validated certs"
+            icon={CheckCircle}
+            iconColor="text-emerald-600"
+            iconBg="bg-emerald-100"
+            trend="100% Legitimacy"
             trendUp={true}
           />
         </div>
 
-        {/* Recent projects and activity */}
+        {/* ── Core Insight Visualization ── */}
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* Recent Projects */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Projects</CardTitle>
-              <CardDescription>Your latest projects and their status</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <ProjectItem
-                  name="Website Redesign"
-                  status="In Progress"
-                  progress={75}
-                  team={3}
-                />
-                <ProjectItem
-                  name="Mobile App Development"
-                  status="In Progress"
-                  progress={45}
-                  team={5}
-                />
-                <ProjectItem
-                  name="Marketing Campaign"
-                  status="Completed"
-                  progress={100}
-                  team={2}
-                />
-                <ProjectItem
-                  name="API Integration"
-                  status="On Hold"
-                  progress={30}
-                  team={4}
-                />
+          
+          {/* Main Radar Hexagon Feature */}
+          <Card className="rounded-[32px] shadow-sm border-gray-100 overflow-hidden bg-white h-full flex flex-col">
+            <CardHeader className="bg-gray-50/50 flex flex-row items-center justify-between pb-6">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <Network className="w-5 h-5 text-gray-400" />
+                  Calculated Skill Graph
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  Your live 6-Node visual map calculated strictly from your validated abilities.
+                </CardDescription>
               </div>
+              <Button variant="ghost" size="sm" className="text-blue-600 font-bold hover:bg-blue-50 rounded-xl" asChild>
+                <a href="/dashboard/student/profile">Details <ArrowRight className="w-4 h-4 ml-1" /></a>
+              </Button>
+            </CardHeader>
+            <CardContent className="h-[400px] w-full p-4 flex items-center justify-center flex-1">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
+                  <PolarGrid stroke="#E5E7EB" />
+                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#6B7280', fontSize: 11, fontWeight: 700 }} />
+                  <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={false} axisLine={false} />
+                  <Radar
+                    name="Competency"
+                    dataKey="score"
+                    stroke="#007AFF"
+                    fill="#007AFF"
+                    fillOpacity={0.15}
+                    strokeWidth={3}
+                    dot={{ r: 4, fill: '#007AFF', strokeWidth: 2 }}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
 
-          {/* Recent Activity */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Latest updates from your team</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <ActivityItem
-                  user="Sarah Johnson"
-                  action="completed task"
-                  target="Homepage Design"
-                  time="2 hours ago"
-                />
-                <ActivityItem
-                  user="Michael Chen"
-                  action="commented on"
-                  target="API Documentation"
-                  time="4 hours ago"
-                />
-                <ActivityItem
-                  user="Emily Rodriguez"
-                  action="created project"
-                  target="Q4 Marketing"
-                  time="Yesterday"
-                />
-                <ActivityItem
-                  user="David Kim"
-                  action="uploaded files to"
-                  target="Brand Assets"
-                  time="2 days ago"
-                />
+          {/* Smart Career Roadmap */}
+          {profile.careerRoadmap ? (
+            <Card className="rounded-[32px] shadow-[0_2px_15px_rgba(0,0,0,0.06)] border-blue-200 bg-gradient-to-br from-blue-50/50 to-white overflow-hidden h-full flex flex-col pt-2">
+              <CardHeader className="pb-6">
+                <div className="flex justify-between items-start gap-4">
+                  <div>
+                    <CardTitle className="text-xl text-black flex items-center gap-2 mb-2">
+                      <Network className="w-5 h-5 text-blue-600" />
+                      Smart Career Roadmap
+                    </CardTitle>
+                    <CardDescription className="text-sm">
+                      Algorithmically calculated route to hire.
+                    </CardDescription>
+                  </div>
+                  <div className="text-right bg-white px-3 py-2 rounded-2xl border border-blue-100 shadow-sm shrink-0">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-tight">Target Role</p>
+                    <p className="text-sm font-black text-blue-600 leading-tight">{profile.careerRoadmap.targetRole}</p>
+                    <div className="mt-1.5 w-full bg-blue-50 h-[3px] rounded-full overflow-hidden">
+                      <div className="bg-blue-600 h-full rounded-full" style={{ width: `${profile.careerRoadmap.matchPercentage}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="px-6 pb-6 flex-1 overflow-y-auto max-h-[400px] hide-scrollbar relative">
+                <div className="space-y-4">
+                  {profile.careerRoadmap.roadmap.map((step: any, i: number) => (
+                    <div key={i} className="flex gap-4 p-4 bg-white rounded-2xl border border-blue-50 shadow-[0_1px_3px_rgba(0,0,0,0.02)] relative group hover:-translate-y-0.5 transition-transform cursor-default">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-black text-xs z-10 shadow-md shadow-blue-600/20">
+                        {step.step}
+                      </div>
+                      {i !== profile.careerRoadmap.roadmap.length - 1 && (
+                        <div className="absolute left-8 top-12 bottom-[-16px] w-[2px] bg-blue-100 group-hover:bg-blue-300 transition-colors" />
+                      )}
+                      <div>
+                        <h4 className="font-bold text-sm text-gray-900 leading-tight">{step.title}</h4>
+                        <p className="text-xs text-gray-500 mt-1.5 leading-relaxed bg-gray-50 p-2 rounded-lg">{step.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="rounded-[32px] shadow-sm border-gray-100 flex items-center justify-center bg-gray-50 h-full">
+              <div className="text-center p-8">
+                <Network className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium text-sm">Roadmap engine is currently calibrating your metrics.</p>
               </div>
+            </Card>
+          )}
+
+        </div>
+
+        {/* Split Core Dashboard View */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          
+          {/* Top Unlocked Offers */}
+          <Card className="rounded-[32px] border-none shadow-[0_2px_10px_rgba(0,0,0,0.04)] bg-white h-full flex flex-col pt-2">
+            <CardHeader className="pb-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="text-lg">Top Unlocked Offers</CardTitle>
+                  <CardDescription className="mt-1">Ranked by your AI Match Score</CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" className="text-indigo-600 font-bold hover:bg-indigo-50 rounded-xl" asChild>
+                  <a href="/dashboard/student/offers">View All <ArrowRight className="w-4 h-4 ml-1" /></a>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col gap-4">
+              <OfferItem
+                role="Cybersecurity Intern"
+                company="TechCorp Solutions"
+                location="San Francisco, CA"
+                score={94}
+              />
+              <OfferItem
+                role="Junior Full-Stack Engineer"
+                company="Pathly Design Labs"
+                location="Remote"
+                score={88}
+              />
+              <OfferItem
+                role="Data Analyst Fellow"
+                company="Global Finance Analytics"
+                location="New York, NY"
+                score={82}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Active Accumulations */}
+          <Card className="rounded-[32px] border-none shadow-[0_2px_10px_rgba(0,0,0,0.04)] bg-white h-full flex flex-col pt-2">
+            <CardHeader className="pb-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="text-lg">Active Accumulations</CardTitle>
+                  <CardDescription className="mt-1">Tasks you are currently undertaking</CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" className="text-blue-600 font-bold hover:bg-blue-50 rounded-xl" asChild>
+                  <a href="/dashboard/student/accumulations">Browse <ArrowRight className="w-4 h-4 ml-1" /></a>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col gap-4">
+              <AccumulationItem
+                title="Advanced React Architecture"
+                type="Course"
+                progress={75}
+                points={150}
+              />
+              <AccumulationItem
+                title="Cybersecurity Threat Hunting CTF"
+                type="Challenge"
+                progress={45}
+                points={300}
+              />
+              <AccumulationItem
+                title="Campus UI/UX Hackathon"
+                type="Event"
+                progress={15}
+                points={200}
+              />
             </CardContent>
           </Card>
         </div>
-
-        {/* Quick actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common tasks to get you started</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <QuickAction
-                title="Create Project"
-                icon={Plus}
-                href="/dashboard/projects/new"
-              />
-              <QuickAction
-                title="Invite Team"
-                icon={Users}
-                href="/dashboard/team/invite"
-              />
-              <QuickAction
-                title="View Reports"
-                icon={TrendingUp}
-                href="/dashboard/reports"
-              />
-              <QuickAction
-                title="Settings"
-                icon={ArrowUpRight}
-                href="/dashboard/settings"
-              />
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </DashboardLayout>
   )
@@ -182,6 +309,8 @@ function StatCard({
   value,
   description,
   icon: Icon,
+  iconColor,
+  iconBg,
   trend,
   trendUp,
 }: {
@@ -189,121 +318,103 @@ function StatCard({
   value: string
   description: string
   icon: React.ElementType
+  iconColor: string
+  iconBg: string
   trend: string
   trendUp: boolean
 }) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="text-green-600 font-medium">{trend}</span>
-          <span>{description}</span>
+    <Card className="rounded-[24px] border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] bg-white relative overflow-hidden group">
+      <div className={`absolute top-0 right-0 w-24 h-24 rounded-bl-[100px] opacity-10 ${iconBg} transition-all group-hover:scale-110`} />
+      <CardContent className="p-6">
+        <div className="flex justify-between items-start mb-4">
+          <p className="text-sm font-bold text-gray-500">{title}</p>
+          <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center ${iconColor}`}>
+            <Icon className="w-5 h-5" />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-3xl font-black text-gray-900 tracking-tight">{value}</h3>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${trendUp ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+              {trend}
+            </span>
+            <span className="text-xs font-medium text-gray-400">{description}</span>
+          </div>
         </div>
       </CardContent>
     </Card>
   )
 }
 
-function ProjectItem({
-  name,
-  status,
-  progress,
-  team,
+function OfferItem({
+  role,
+  company,
+  location,
+  score,
 }: {
-  name: string
-  status: string
-  progress: number
-  team: number
+  role: string
+  company: string
+  location: string
+  score: number
 }) {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Completed":
-        return "bg-green-100 text-green-700"
-      case "In Progress":
-        return "bg-blue-100 text-blue-700"
-      case "On Hold":
-        return "bg-yellow-100 text-yellow-700"
-      default:
-        return "bg-gray-100 text-gray-700"
-    }
-  }
-
   return (
-    <div className="flex items-center justify-between">
-      <div className="space-y-1">
-        <p className="text-sm font-medium">{name}</p>
+    <div className="flex items-center justify-between p-4 rounded-2xl border border-gray-50 bg-gray-50/50 hover:bg-indigo-50/50 hover:border-indigo-100 transition-colors group cursor-pointer">
+      <div className="space-y-1 w-full">
         <div className="flex items-center gap-2">
-          <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(status)}`}>
-            {status}
+          <p className="text-sm font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">{role}</p>
+          <span className="text-[10px] uppercase tracking-wider font-black px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
+            {score}% Match
           </span>
-          <span className="text-xs text-muted-foreground">{team} members</span>
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center gap-3 text-xs font-medium text-gray-500">
+            <span className="flex items-center gap-1"><Briefcase className="w-3 h-3" /> {company}</span>
+            <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {location}</span>
+          </div>
+          <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-indigo-600 transition-colors" />
         </div>
       </div>
-      <div className="text-right">
-        <p className="text-sm font-medium">{progress}%</p>
-        <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+    </div>
+  )
+}
+
+function AccumulationItem({
+  title,
+  type,
+  progress,
+  points,
+}: {
+  title: string
+  type: string
+  progress: number
+  points: number
+}) {
+  return (
+    <div className="flex flex-col gap-3 p-4 rounded-2xl border border-gray-50 bg-gray-50/50 hover:bg-blue-50/50 hover:border-blue-100 transition-colors cursor-pointer group">
+      <div className="flex items-start justify-between">
+        <div className="space-y-1 w-full">
+          <p className="text-sm font-bold text-gray-900 group-hover:text-blue-700 transition-colors flex items-center justify-between">
+            {title}
+             <span className="text-[10px] font-black px-2 py-0.5 rounded text-blue-700 bg-blue-100">+{points} PTS</span>
+          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">{type}</span>
+          </div>
+        </div>
+      </div>
+      <div className="space-y-1.5 mt-1">
+        <div className="flex justify-between text-xs font-bold text-gray-500">
+          <span>Progress</span>
+          <span className="text-blue-600">{progress}%</span>
+        </div>
+        <div className="h-2 w-full bg-blue-100/50 rounded-full overflow-hidden">
           <div 
-            className="h-full bg-primary transition-all" 
+            className="h-full bg-blue-500 rounded-full transition-all duration-500" 
             style={{ width: `${progress}%` }}
           />
         </div>
       </div>
     </div>
-  )
-}
-
-function ActivityItem({
-  user,
-  action,
-  target,
-  time,
-}: {
-  user: string
-  action: string
-  target: string
-  time: string
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="flex items-start gap-3">
-        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-          <span className="text-xs font-medium text-primary">
-            {user.split(" ").map(n => n[0]).join("")}
-          </span>
-        </div>
-        <div>
-          <p className="text-sm">
-            <span className="font-medium">{user}</span>{" "}
-            <span className="text-muted-foreground">{action}</span>{" "}
-            <span className="font-medium">{target}</span>
-          </p>
-          <p className="text-xs text-muted-foreground">{time}</p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function QuickAction({
-  title,
-  icon: Icon,
-  href,
-}: {
-  title: string
-  icon: React.ElementType
-  href: string
-}) {
-  return (
-    <Button variant="outline" className="h-auto py-4 flex flex-col items-center gap-2" asChild>
-      <a href={href}>
-        <Icon className="h-5 w-5" />
-        <span className="text-xs">{title}</span>
-      </a>
-    </Button>
   )
 }

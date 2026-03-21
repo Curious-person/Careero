@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { generateMockAcademicData, deriveSkillTags, calculatePoints } from '../services/profile.service';
+import { generateSmartRoadmap } from '../services/roadmap.service';
 import { StudentProfile } from '../models/StudentProfile';
 import Tesseract from 'tesseract.js';
 import jwt from 'jsonwebtoken';
@@ -69,10 +70,14 @@ export const processOcrUpload = async (
   next: NextFunction
 ) => {
   try {
-    const { imageBase64 } = req.body;
+    const { imageBase64, studentName } = req.body;
 
     if (!imageBase64) {
       return res.status(400).json({ message: 'Missing imageBase64 payload' });
+    }
+
+    if (!imageBase64.startsWith('data:image/')) {
+      return res.status(400).json({ message: 'Invalid file format. Only images (PNG, JPG, etc) are supported for OCR scanning.' });
     }
 
     // ── Guard: Decode Base64 ──────────────────
@@ -80,8 +85,8 @@ export const processOcrUpload = async (
       console.warn("Missing JWT_SECRET, using dev secret.");
     }
 
-    // Strip the data URI prefix — handles jpeg, png, webp, gif, bmp
-    const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/i, '');
+    // Strip the data URI prefix efficiently and safely regardless of explicit mime type
+    const base64Data = imageBase64.split(',')[1] || imageBase64;
     const imageBuffer = Buffer.from(base64Data, 'base64');
 
     // ── Step 1: Local High-Speed Tesseract OCR ────────────────────────────────
@@ -91,18 +96,74 @@ export const processOcrUpload = async (
       const { data } = await Tesseract.recognize(imageBuffer, 'eng');
       ocrText = data.text.trim() || 'No text detected';
     } catch (ocrErr: any) {
-      console.error('[Tesseract] OCR processing failed:', ocrErr.message);
-      return res.status(502).json({
-        message: 'Local Tesseract Vision processing failed',
-        error: ocrErr.message,
+      const errMsg = ocrErr?.message || ocrErr?.toString() || 'Unknown fatal image read error';
+      console.error('[Tesseract] OCR processing failed:', errMsg);
+      return res.status(422).json({
+        message: 'Tesseract failed to read this image. The file might be corrupted, or formatting is unsupported.',
+        error: errMsg,
       });
     }
 
-    // ── Step 2: Zero-Shot Classification via local @xenova/transformers ───────
+    // ── Step 2: Strict Lexical Identity & Credential Heuristic Guards ─────────
+    if (ocrText.length < 15) {
+      return res.status(400).json({
+        message: 'Validation Failed: No readable text detected. Please ensure this is a high-quality scan.',
+        error: 'INVALID_DOCUMENT_LENGTH'
+      });
+    }
+
+    const normalizedOcr = ocrText.toLowerCase();
+
+    // Guard 2A: Identity Verification Match
+    if (studentName) {
+      const names = studentName.split(' ').filter(Boolean);
+      // Name usually contains first and last. They both must exist somewhere closely on the certificate.
+      const hasIdentity = names.every((n: string) => normalizedOcr.includes(n));
+      if (!hasIdentity) {
+        return res.status(400).json({
+          message: `Forgery/Mismatch Detected: Could not verify your legal identity ("${studentName}") embedded within this document.`,
+          error: 'IDENTITY_MISMATCH'
+        });
+      }
+    }
+
+    // Guard 2B: Contextual Vocabulary Match
+    const certKeywords = ['certificate', 'certify', 'certification', 'completed', 'awarded', 'diploma', 'degree', 'participation', 'credential', 'badge', 'coursera', 'udemy', 'issued', 'academy'];
+    const hasKeyword = certKeywords.some(kw => normalizedOcr.includes(kw));
+
+    if (!hasKeyword) {
+      return res.status(400).json({
+        message: 'Fraud Guard: This document lacks standard certification language (e.g. "Certificate", "Awarded", "Issuer"). Screenshots and portfolios are strictly forbidden.',
+        error: 'MISSING_CREDENTIAL_KEYWORDS'
+      });
+    }
+
+    // ── Step 2: AI Document Validation Guard ────────────────────────────────
+    if (ocrText.length < 15) {
+      return res.status(400).json({
+        message: 'No readable text detected. Please ensure this is a valid certification document.',
+        error: 'INVALID_DOCUMENT_LENGTH'
+      });
+    }
+
+    // ── Step 3: Zero-Shot Classification via local @xenova/transformers ───────
     let classification: any = null;
 
     try {
       const runClassifier = await getClassifier();
+
+      // Preliminary Legitimacy Check
+      const validityLabels = ['valid certification record', 'random text or drawing'];
+      const validityResult = await runClassifier(ocrText, validityLabels);
+
+      if (validityResult.labels[0] !== 'valid certification record' || validityResult.scores[0] < 0.5) {
+        return res.status(400).json({
+          message: 'AI Validation Failed: This document does not appear to be a legitimate certification.',
+          error: 'INVALID_DOCUMENT_CLASS'
+        });
+      }
+
+      // Feature Classification
       const labels = [
         'programming',
         'networking',
@@ -219,10 +280,64 @@ export const getProfile = async (
       );
     }
 
+    // Generate the dynamic roadmap on the fly using their array of { tag, confidence }
+    const careerRoadmap = generateSmartRoadmap(profile.skillTags);
+
     return res.json({
       message: 'Profile retrieved successfully',
-      data: profile,
+      data: {
+        ...profile,
+        careerRoadmap,
+      },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 5. POST /api/v1/profile/certifications/add
+ *    Appends a new verified certification to the profile and mathematically recalculates the skill tags, points, and roadmap.
+ */
+export const addCertification = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const token = req.cookies?.jwt;
+    if (!token) return res.status(401).json({ message: 'Unauthorized' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
+
+    const { certification } = req.body;
+    if (!certification) return res.status(400).json({ message: 'Certification payload required' });
+
+    const profile = await StudentProfile.findOne({ user: decoded.id });
+    if (!profile) return res.status(404).json({ message: 'Profile not found' });
+
+    // Append certification
+    profile.certifications.push(certification);
+
+    // Re-run standard engines
+    profile.skillTags = deriveSkillTags(profile.academicRecords, profile.certifications) as any;
+    const calculatedPoints = calculatePoints(profile.academicRecords, profile.certifications);
+    
+    profile.totalPoints = calculatedPoints.total;
+    profile.pointsBreakdown = calculatedPoints.breakdown;
+
+    await profile.save();
+    
+    // Regenerate roadmap attached to the response payload to hot-reload the UI seamlessly
+    const careerRoadmap = generateSmartRoadmap(profile.skillTags as any);
+
+    return res.status(200).json({
+      message: 'Certification added successfully! Your points and roadmap have been updated.',
+      data: {
+        ...profile.toJSON(),
+        careerRoadmap
+      }
+    });
+
   } catch (error) {
     next(error);
   }

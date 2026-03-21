@@ -28,7 +28,7 @@ export interface IStudentProfile extends Document {
     term: string;
   };
   academicRecords: IAcademicRecord[];
-  skillTags: string[];
+  skillTags: { tag: string; confidence: number }[];
   certifications: ICertification[];
   totalPoints: number;
   pointsBreakdown?: {
@@ -78,7 +78,10 @@ const StudentProfileSchema = new Schema<IStudentProfile>(
       term: { type: String },
     },
     academicRecords: [AcademicRecordSchema],
-    skillTags: [{ type: String }],
+    skillTags: [{
+      tag: { type: String, required: true },
+      confidence: { type: Number, required: true, min: 0, max: 1 }
+    }],
     certifications: [CertificationSchema],
     totalPoints: { type: Number, default: 0 },
     pointsBreakdown: {

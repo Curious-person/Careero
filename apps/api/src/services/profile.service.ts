@@ -49,18 +49,36 @@ export const generateMockAcademicData = (courseKey: string): IAcademicRecord[] =
   });
 };
 
+export interface DerivedSkill {
+  tag: string;
+  confidence: number;
+}
+
 /**
  * Maps incoming subject objects to flat skill tags if the student scored <= 2.0
  * Additionally extracts high-confidence AI labels parsed from local Xenova classification instances.
  */
-export const deriveSkillTags = (records: IAcademicRecord[], certs: any[] = []): string[] => {
-  const tags = new Set<string>();
+export const deriveSkillTags = (records: IAcademicRecord[], certs: any[] = []): DerivedSkill[] => {
+  const tagMap = new Map<string, number>();
+
+  // Helper to add or update maximum confidence
+  const recordConfidence = (tag: string, conf: number) => {
+    const existing = tagMap.get(tag) || 0;
+    // Synergy bonus: if we already have some confidence from another source, boost it by 10%
+    let newConf = existing > 0 ? Math.min(Math.max(existing, conf) + 0.1, 0.99) : conf;
+    tagMap.set(tag, newConf);
+  };
   
   // 1. Academic Hardcoding
   records.forEach(record => {
     if (record.grade <= 2.0) {
+      // Grade 1.0 (perfect) -> 0.95 confidence
+      // Grade 2.0 (passing threshold) -> 0.75 confidence
+      // Math: 0.95 - (grade - 1.0) * 0.20
+      const confidence = Math.max(0.75, 0.95 - (record.grade - 1.0) * 0.2);
+      
       const associatedTags = SKILL_TAG_MAP[record.subject] || [];
-      associatedTags.forEach(tag => tags.add(tag));
+      associatedTags.forEach(tag => recordConfidence(tag, confidence));
     }
   });
 
@@ -71,13 +89,13 @@ export const deriveSkillTags = (records: IAcademicRecord[], certs: any[] = []): 
       for (let i = 0; i < labels.length; i++) {
         // Only accept if the transformer pipeline is somewhat confident the file proves this skill
         if (scores[i] > 0.35) {
-          tags.add(labels[i]);
+          recordConfidence(labels[i], scores[i]);
         }
       }
     }
   });
 
-  return Array.from(tags);
+  return Array.from(tagMap.entries()).map(([tag, confidence]) => ({ tag, confidence }));
 };
 
 // Convert 1.0-3.0 scale to 100-60 Score mapped linearly (Score = 120 - 20 * Grade)
@@ -112,8 +130,8 @@ export const calculatePoints = (records: IAcademicRecord[], certs: ICertificatio
   // Dynamically compile derived skills from academic overlaps and AI Xenova strings
   const skillTags = deriveSkillTags(records, certs);
   const isSoftSkill = (tag: string) => ['leadership', 'agile', 'scrum', 'communication', 'teamwork', 'adaptability'].includes(tag.toLowerCase());
-  const hardSkillsCount = skillTags.filter(t => !isSoftSkill(t)).length;
-  const softSkillsCount = skillTags.filter(t => isSoftSkill(t)).length;
+  const hardSkillsCount = skillTags.filter(t => !isSoftSkill(t.tag)).length;
+  const softSkillsCount = skillTags.filter(t => isSoftSkill(t.tag)).length;
 
   const hardSkillsRaw = Math.min(hardSkillsCount * 15, 100);
   const softSkillsRaw = Math.min(softSkillsCount * 25, 100);

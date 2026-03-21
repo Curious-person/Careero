@@ -15,4 +15,7 @@ router.post('/onboard', profileController.submitOnboarding);
 // Retrieve the securely bound user profile
 router.get('/me', profileController.getProfile);
 
+// Appends validations continuously
+router.post('/certifications/add', profileController.addCertification);
+
 export default router;

@@ -9,14 +9,16 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import Image from 'next/image'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
-import { Loader2, ShieldCheck, ShieldAlert, BadgeInfo, Network, Award, LayoutDashboard, Users, Settings, HelpCircle, ChevronRight, Eye, UploadCloud, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Loader2, ShieldCheck, ShieldAlert, BadgeInfo, Network, Award, LayoutDashboard, Layers, Briefcase, Users, Settings, HelpCircle, ChevronRight, Eye, UploadCloud, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts'
 
 // We force generic student navigation
 const studentNavigation = [
-  { name: "Dashboard", href: "/dashboard/student", icon: LayoutDashboard },
-  { name: "My Profile", href: "/dashboard/student/profile", icon: Users },
-  { name: "Settings", href: "/dashboard/student/settings", icon: Settings },
+  { name: 'Overview', href: '/dashboard/student', icon: LayoutDashboard },
+
+  { name: 'Accumulations', href: '/dashboard/student/accumulations', icon: Layers },
+  { name: 'Offers', href: '/dashboard/student/offers', icon: Briefcase },
+    { name: 'My Profile', href: '/dashboard/student/profile', icon: Users },
 ]
 
 export default function StudentProfilePage() {

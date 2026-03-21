@@ -46,6 +46,7 @@ export interface IStudentProfile extends Document {
     rawHardSkills?: number;
     rawSoftSkills?: number;
   };
+  resumeMarkdown?: string;
   status: 'PENDING_ONBOARDING' | 'UNDER_EVALUATION' | 'VERIFIED' | 'REJECTED';
 }
 
@@ -99,6 +100,7 @@ const StudentProfileSchema = new Schema<IStudentProfile>(
       rawHardSkills: { type: Number, default: 0 },
       rawSoftSkills: { type: Number, default: 0 },
     },
+    resumeMarkdown: { type: String, default: '' },
     status: {
       type: String,
       enum: ['PENDING_ONBOARDING', 'UNDER_EVALUATION', 'VERIFIED', 'REJECTED'],

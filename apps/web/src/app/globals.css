@@ -75,3 +75,33 @@
     aspect-ratio: 9 / 19.5;
   }
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-only {
+    display: block !important;
+  }
+
+  body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  @page {
+    margin: 1cm;
+  }
+
+  /* Reset layout for full-page resume printing */
+  .resume-print-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    z-index: 9999;
+    background: white;
+  }
+}

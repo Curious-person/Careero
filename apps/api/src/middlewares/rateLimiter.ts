@@ -26,3 +26,15 @@ export const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// Strict LLM generation rate limit (allow 10 requests per hour to control Cloud AI costs)
+export const llmLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: { 
+    message: 'Global Cloud AI Limit reached for your session. Please try again in 1 hour.',
+    error: 'RATE_LIMIT_EXCEEDED'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});

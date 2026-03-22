@@ -298,7 +298,133 @@ export const getProfile = async (
 };
 
 /**
- * 5. POST /api/v1/profile/certifications/add
+ * 5. GET /api/v1/profile/students
+ *    Returns all student profiles (for school dashboard), with user email populated.
+ */
+export const getAllStudents = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const profiles = await StudentProfile.find().populate('user', 'email').lean();
+    return res.json({ data: profiles });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 5b. GET /api/v1/profile/:id
+ *     Returns a single student profile by ID (school action).
+ */
+export const getStudentById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const profile = await StudentProfile.findById(req.params.id).populate('user', 'email').lean();
+    if (!profile) return res.status(404).json({ message: 'Profile not found' });
+    const careerRoadmap = generateSmartRoadmap(profile.skillTags as any);
+    return res.json({ data: { ...profile, careerRoadmap } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 5c. PATCH /api/v1/profile/:id/verify
+ *     Sets a student profile status to VERIFIED (school action).
+ */
+export const verifyStudent = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const profile = await StudentProfile.findByIdAndUpdate(
+      req.params.id,
+      { status: 'VERIFIED' },
+      { new: true }
+    ).lean();
+    if (!profile) return res.status(404).json({ message: 'Profile not found' });
+    return res.json({ message: 'Student verified', data: profile });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 5c. DELETE /api/v1/profile/:id
+ *     Removes a student profile (school action).
+ */
+export const deleteStudent = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const profile = await StudentProfile.findByIdAndDelete(req.params.id);
+    if (!profile) return res.status(404).json({ message: 'Profile not found' });
+    return res.json({ message: 'Student profile deleted' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 5d. POST /api/v1/profile/admin/create
+ *     School creates a student profile directly (bypasses student self-onboarding).
+ *     Body: { email, firstName, lastName, course, yearLevel, studentId }
+ */
+export const adminCreateStudent = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { User } = await import('../models/User');
+    const { email, firstName, lastName, middleName, course, yearLevel, studentId, section, term } = req.body;
+    if (!email || !firstName || !lastName || !course) {
+      return res.status(400).json({ message: 'email, firstName, lastName, and course are required' });
+    }
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({ email, role: 'student', isVerified: false });
+    }
+
+    const existing = await StudentProfile.findOne({ user: user._id });
+    if (existing) return res.status(409).json({ message: 'Profile already exists for this email' });
+
+    const profile = await StudentProfile.create({
+      user: user._id,
+      basicInfo: {
+        firstName,
+        lastName,
+        middleName: middleName || '',
+        course,
+        yearLevel: yearLevel || '1st Year',
+        studentId: studentId || '',
+        section: section || '',
+        term: term || '',
+      },
+      academicRecords: [],
+      skillTags: [],
+      certifications: [],
+      totalPoints: 0,
+      status: 'PENDING_ONBOARDING',
+    });
+
+    return res.status(201).json({ message: 'Student profile created', data: profile });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 6. POST /api/v1/profile/certifications/add
  *    Appends a new verified certification to the profile and mathematically recalculates the skill tags, points, and roadmap.
  */
 export const addCertification = async (

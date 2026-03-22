@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { BookOpen, GraduationCap, TrendingUp, ChevronLeft, Mail, Phone, Layers, Trophy, Search, ArrowUpDown, UserCheck, Clock, Pencil, Trash2, Plus, ShieldCheck, X, CheckCircle, BookMarked } from "lucide-react"
@@ -8,64 +9,131 @@ import { COURSES, PENDING_STUDENTS } from "../_data/school-data"
 import { StatCard, PerformanceBar, StatusBadge } from "../_components/shared"
 import type { Student, PendingStudent } from "../_data/school-data"
 import type { Accum } from "../accumulations/AccumulationsPage"
+import { apiClient } from "@/lib/apiClient"
 
 const COURSE_CODES = COURSES.map(c => c.code)
+
+type PendingFormData = {
+  email: string
+  firstName: string
+  lastName: string
+  middleName: string
+  studentId: string
+  section: string
+  course: string
+  yearLevel: string
+  term: string
+}
 
 function PendingForm({
   initial,
   onSave,
   onCancel,
 }: {
-  initial?: PendingStudent
-  onSave: (data: Omit<PendingStudent, "id" | "registeredAt">) => void
+  initial?: DbPendingStudent
+  onSave: (data: PendingFormData) => void
   onCancel: () => void
 }) {
-  const [form, setForm] = useState({
-    name: initial?.name ?? "",
+  const [form, setForm] = useState<PendingFormData>({
     email: initial?.email ?? "",
-    phone: initial?.phone ?? "",
+    firstName: initial?.name?.split(" ")[0] ?? "",
+    lastName: initial?.name?.split(" ").slice(-1)[0] ?? "",
+    middleName: "",
+    studentId: "",
+    section: "",
     course: initial?.course ?? COURSE_CODES[0],
-    year: initial?.year ?? "1st Year",
+    yearLevel: initial?.year ?? "1st Year",
+    term: "",
   })
   const years = ["1st Year", "2nd Year", "3rd Year", "4th Year"]
-  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+  const set = (k: keyof PendingFormData, v: string) => setForm(f => ({ ...f, [k]: v }))
   const inputCls = "w-full px-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+  const isValid = form.email && form.firstName && form.lastName && form.course
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-background rounded-xl border shadow-xl w-full max-w-md p-6 space-y-4">
+      <div className="bg-background rounded-xl border shadow-xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{initial ? "Edit Pending Student" : "Add Pending Student"}</h2>
+          <h2 className="text-lg font-semibold">{initial ? "Edit Pending Student" : "Add Student"}</h2>
           <button type="button" title="Close" onClick={onCancel}><X className="h-5 w-5 text-muted-foreground" /></button>
         </div>
         <div className="space-y-3">
-          {(["name", "email", "phone"] as const).map(k => (
-            <div key={k}>
-              <label className="text-xs font-medium capitalize text-muted-foreground">{k}</label>
-              <input className={inputCls} value={form[k]} onChange={e => set(k, e.target.value)} placeholder={k} />
+          {([
+            { key: "email", label: "Email *" },
+            { key: "firstName", label: "First Name *" },
+            { key: "lastName", label: "Last Name *" },
+            { key: "middleName", label: "Middle Name" },
+            { key: "studentId", label: "Student ID" },
+            { key: "section", label: "Section" },
+            { key: "term", label: "Term" },
+          ] as { key: keyof PendingFormData; label: string }[]).map(({ key, label }) => (
+            <div key={key}>
+              <label className="text-xs font-medium text-muted-foreground">{label}</label>
+              <input className={inputCls} value={form[key]} onChange={e => set(key, e.target.value)} placeholder={label.replace(" *", "")} />
             </div>
           ))}
           <div>
-            <label className="text-xs font-medium text-muted-foreground">Course</label>
+            <label className="text-xs font-medium text-muted-foreground">Course *</label>
             <select title="Select course" className={inputCls} value={form.course} onChange={e => set("course", e.target.value)}>
               {COURSE_CODES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground">Year</label>
-            <select title="Select year" className={inputCls} value={form.year} onChange={e => set("year", e.target.value)}>
+            <label className="text-xs font-medium text-muted-foreground">Year Level *</label>
+            <select title="Select year" className={inputCls} value={form.yearLevel} onChange={e => set("yearLevel", e.target.value)}>
               {years.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-          <Button type="button" onClick={() => onSave(form)} disabled={!form.name || !form.email}>
+          <Button type="button" onClick={() => onSave(form)} disabled={!isValid}>
             {initial ? "Save Changes" : "Add Student"}
           </Button>
         </div>
       </div>
     </div>
   )
+}
+
+const STATUS_MAP: Record<string, string> = {
+  VERIFIED: "Active",
+  UNDER_EVALUATION: "Pending",
+  REJECTED: "Probation",
+  PENDING_ONBOARDING: "Pending",
+}
+
+function mapProfileToStudent(p: any): Student & { profileId: string } {
+  const fullName = [p.basicInfo?.firstName, p.basicInfo?.middleName, p.basicInfo?.lastName].filter(Boolean).join(" ")
+  const performance = (p.academicRecords ?? []).map((r: any) => ({
+    field: r.subject,
+    score: Math.round(120 - 20 * r.grade),
+  }))
+  const gpa = performance.length
+    ? parseFloat((performance.reduce((s: number, p: any) => s + p.score, 0) / performance.length / 25).toFixed(2))
+    : 0
+  return {
+    profileId: p._id,
+    name: fullName || "Unknown",
+    id: p.basicInfo?.studentId || p._id,
+    year: p.basicInfo?.yearLevel || "—",
+    status: STATUS_MAP[p.status] ?? "Pending",
+    email: (p.user as any)?.email || "",
+    phone: "",
+    gpa,
+    performance,
+    completedAccums: [],
+    currentAccums: [],
+  }
+}
+
+type DbPendingStudent = {
+  _id: string
+  name: string
+  email: string
+  course: string
+  year: string
+  status: string
+  registeredAt: string
 }
 
 export default function StudentsPage({
@@ -85,41 +153,94 @@ export default function StudentsPage({
   onBack: () => void
   accums?: Accum[]
 }) {
+  const router = useRouter()
   const [search, setSearch] = useState("")
   const [sort, setSort] = useState("name")
-
-  const [pending, setPending] = useState<PendingStudent[]>(PENDING_STUDENTS)
-  const [selectedPending, setSelectedPending] = useState<PendingStudent | null>(null)
-  const [formTarget, setFormTarget] = useState<PendingStudent | "new" | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<PendingStudent | null>(null)
+  const [dbCourses, setDbCourses] = useState<typeof COURSES>([])
+  const [pending, setPending] = useState<DbPendingStudent[]>([])
+  const [selectedPending, setSelectedPending] = useState<DbPendingStudent | null>(null)
+  const [formTarget, setFormTarget] = useState<DbPendingStudent | "new" | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<DbPendingStudent | null>(null)
   const [pendingSearch, setPendingSearch] = useState("")
   const [pendingSort, setPendingSort] = useState("name")
 
+  const loadStudents = () => {
+    apiClient.get('/profile/students').then(res => {
+      const profiles: any[] = res.data.data
+
+      // Verified → course cards
+      const courseMap = new Map<string, typeof COURSES[0]>()
+      COURSES.forEach(c => courseMap.set(c.code, { ...c, students: [] }))
+      profiles
+        .filter(p => p.status === 'VERIFIED')
+        .forEach(p => {
+          const code = p.basicInfo?.course?.toUpperCase()
+          if (code && courseMap.has(code)) {
+            courseMap.get(code)!.students.push(mapProfileToStudent(p))
+          }
+        })
+      setDbCourses(Array.from(courseMap.values()))
+
+      // Non-verified → pending section
+      const pendingProfiles = profiles
+        .filter(p => p.status !== 'VERIFIED')
+        .map(p => ({
+          _id: p._id,
+          name: [p.basicInfo?.firstName, p.basicInfo?.lastName].filter(Boolean).join(" ") || "Unknown",
+          email: (p.user as any)?.email || "",
+          course: p.basicInfo?.course?.toUpperCase() || "",
+          year: p.basicInfo?.yearLevel || "—",
+          status: p.status,
+          registeredAt: new Date(p.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+        }))
+      setPending(pendingProfiles)
+    }).catch(console.error)
+  }
+
+  useEffect(() => { loadStudents() }, [])
+
+  const courses = dbCourses.length ? dbCourses : COURSES
+
   // ── Pending CRUD helpers ──────────────────────────────────────────────────
-  function handleSave(data: Omit<PendingStudent, "id" | "registeredAt">) {
+  function handleSave(data: PendingFormData) {
     if (formTarget === "new") {
-      const newEntry: PendingStudent = {
-        ...data,
-        id: `pnd-${Date.now()}`,
-        registeredAt: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      }
-      setPending(p => [...p, newEntry])
+      apiClient.post('/profile/admin/create', {
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        middleName: data.middleName,
+        studentId: data.studentId,
+        section: data.section,
+        course: data.course,
+        yearLevel: data.yearLevel,
+        term: data.term,
+      }).then(() => {
+        loadStudents()
+      }).catch(console.error)
     } else if (formTarget) {
-      setPending(p => p.map(s => s.id === formTarget.id ? { ...s, ...data } : s))
-      if (selectedPending?.id === formTarget.id) setSelectedPending(prev => prev ? { ...prev, ...data } : prev)
+      const name = `${data.firstName} ${data.lastName}`.trim()
+      setPending(p => p.map(s => s._id === (formTarget as DbPendingStudent)._id ? { ...s, name, email: data.email, course: data.course, year: data.yearLevel } : s))
+      if (selectedPending?._id === (formTarget as DbPendingStudent)._id)
+        setSelectedPending(prev => prev ? { ...prev, name, email: data.email, course: data.course, year: data.yearLevel } : prev)
     }
     setFormTarget(null)
   }
 
-  function handleDelete(target: PendingStudent) {
-    setPending(p => p.filter(s => s.id !== target.id))
-    if (selectedPending?.id === target.id) setSelectedPending(null)
+  function handleDelete(target: DbPendingStudent) {
+    setPending(p => p.filter(s => s._id !== target._id))
+    if (selectedPending?._id === target._id) setSelectedPending(null)
     setDeleteTarget(null)
   }
 
-  function handleVerify(target: PendingStudent) {
-    setPending(p => p.filter(s => s.id !== target.id))
-    setSelectedPending(null)
+  function handleVerify(target: DbPendingStudent) {
+    apiClient.patch(`/profile/${target._id}/verify`)
+      .then(() => {
+        setPending(p => p.filter(s => s._id !== target._id))
+        setSelectedPending(null)
+        setDeleteTarget(null)
+        loadStudents()
+      })
+      .catch(console.error)
   }
 
   // ── Verified student detail view ──────────────────────────────────────────
@@ -289,7 +410,7 @@ export default function StudentsPage({
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2 text-sm"><Mail className="h-4 w-4 text-muted-foreground shrink-0" /><span>{selectedPending.email}</span></div>
-                <div className="flex items-center gap-2 text-sm"><Phone className="h-4 w-4 text-muted-foreground shrink-0" /><span>{selectedPending.phone}</span></div>
+                <div className="flex items-center gap-2 text-sm"><Phone className="h-4 w-4 text-muted-foreground shrink-0" /><span>—</span></div>
                 <div className="flex items-center gap-2 text-sm"><BookOpen className="h-4 w-4 text-muted-foreground shrink-0" /><span>{courseName}</span></div>
                 <div className="flex items-center gap-2 text-sm"><GraduationCap className="h-4 w-4 text-muted-foreground shrink-0" /><span>{selectedPending.year}</span></div>
               </CardContent>
@@ -310,7 +431,7 @@ export default function StudentsPage({
                 <Button
                   type="button"
                   className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => setDeleteTarget({ ...selectedPending, _verify: true } as PendingStudent & { _verify: boolean })}
+                  onClick={() => setDeleteTarget({ ...selectedPending, _verify: true } as DbPendingStudent & { _verify: boolean })}
                 >
                   <UserCheck className="h-4 w-4 mr-2" />Verify Student
                 </Button>
@@ -323,13 +444,13 @@ export default function StudentsPage({
         {deleteTarget && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
             <div className="bg-background rounded-xl border shadow-xl w-full max-w-sm p-6 space-y-4">
-              {(deleteTarget as PendingStudent & { _verify?: boolean })._verify ? (
+              {(deleteTarget as DbPendingStudent & { _verify?: boolean })._verify ? (
                 <>
                   <h2 className="text-lg font-semibold">Verify Student</h2>
                   <p className="text-sm text-muted-foreground">Are you sure you want to verify <span className="font-medium text-foreground">{deleteTarget.name}</span>? Their account will be activated as a verified student.</p>
                   <div className="flex justify-end gap-2">
                     <Button type="button" variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
-                    <Button type="button" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleVerify(deleteTarget)}>
+                    <Button type="button" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleVerify(deleteTarget as DbPendingStudent)}>
                       <UserCheck className="h-4 w-4 mr-1" />Confirm Verify
                     </Button>
                   </div>
@@ -340,7 +461,7 @@ export default function StudentsPage({
                   <p className="text-sm text-muted-foreground">Are you sure you want to remove <span className="font-medium text-foreground">{deleteTarget.name}</span>? This action cannot be undone.</p>
                   <div className="flex justify-end gap-2">
                     <Button type="button" variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
-                    <Button type="button" variant="destructive" onClick={() => handleDelete(deleteTarget)}>Delete</Button>
+                    <Button type="button" variant="destructive" onClick={() => handleDelete(deleteTarget as DbPendingStudent)}>Delete</Button>
                   </div>
                 </>
               )}
@@ -353,7 +474,8 @@ export default function StudentsPage({
 
   // ── Course student list ───────────────────────────────────────────────────
   if (selectedCourse) {
-    const filtered = selectedCourse.students
+    const liveCourse = courses.find(c => c.code === selectedCourse.code) ?? selectedCourse
+    const filtered = liveCourse.students
       .filter(s =>
         s.name.toLowerCase().includes(search.toLowerCase()) ||
         s.id.toLowerCase().includes(search.toLowerCase())
@@ -369,7 +491,7 @@ export default function StudentsPage({
           <Button type="button" variant="ghost" size="icon" title="Go back" onClick={onBack}><ChevronLeft className="h-5 w-5" /></Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{selectedCourse.code}</h1>
-            <p className="text-muted-foreground">{selectedCourse.name} — {selectedCourse.enrolled} students enrolled</p>
+            <p className="text-muted-foreground">{selectedCourse.name} — {liveCourse.students.length} students enrolled</p>
           </div>
         </div>
         <Card>
@@ -377,7 +499,7 @@ export default function StudentsPage({
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <CardTitle>Student List</CardTitle>
-                <CardDescription>All enrolled students in {selectedCourse.code}</CardDescription>
+                <CardDescription>All enrolled students in {liveCourse.code}</CardDescription>
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <div className="relative flex items-center gap-1.5 border rounded-md px-2 py-2 bg-background text-sm">
@@ -403,7 +525,7 @@ export default function StudentsPage({
                 {filtered.map(student => {
                   const initials = student.name.split(" ").map(n => n[0]).join("")
                   return (
-                    <button type="button" key={student.id} onClick={() => onSelectStudent(student)} className="w-full text-left flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 hover:border-primary transition-all">
+                    <button type="button" key={student.id} onClick={() => router.push(`/dashboard/school/students/${(student as any).profileId}`)} className="w-full text-left flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 hover:border-primary transition-all">
                       <div className="flex items-center gap-3">
                         <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                           <span className="text-xs font-medium text-primary">{initials}</span>
@@ -460,7 +582,7 @@ export default function StudentsPage({
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          {COURSES.map(course => {
+          {courses.map(course => {
             const progress = Math.round((course.enrolled / course.capacity) * 100)
             return (
               <button type="button" key={course.code} onClick={() => { setSearch(""); onSelectCourse(course) }} className="text-left">
@@ -473,7 +595,7 @@ export default function StudentsPage({
                       <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{course.code}</span>
                     </div>
                     <CardTitle className="text-base mt-2">{course.name}</CardTitle>
-                    <CardDescription>{course.students.length} students listed</CardDescription>
+                    <CardDescription>{course.students.length} students enrolled</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
@@ -547,8 +669,8 @@ export default function StudentsPage({
                   {filteredPending.map(student => {
                     const initials = student.name.split(" ").map(n => n[0]).join("")
                     return (
-                      <div key={student.id} className="flex items-center justify-between p-3 rounded-lg border bg-yellow-50/40 hover:bg-yellow-50/70 transition-all">
-                        <button type="button" className="flex items-center gap-3 flex-1 text-left" onClick={() => setSelectedPending(student)}>
+                      <div key={student._id} className="flex items-center justify-between p-3 rounded-lg border bg-yellow-50/40 hover:bg-yellow-50/70 transition-all">
+                        <button type="button" className="flex items-center gap-3 flex-1 text-left" onClick={() => router.push(`/dashboard/school/students/${student._id}`)}>
                           <div className="h-9 w-9 rounded-full bg-yellow-100 flex items-center justify-center shrink-0">
                             <span className="text-xs font-medium text-yellow-700">{initials}</span>
                           </div>

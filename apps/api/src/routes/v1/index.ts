@@ -4,6 +4,8 @@ import authRoute from './auth.route';
 import profileRoute from './profile.route';
 import accumulationRoute from './accumulation.route';
 import roleRoute from './role.route';
+import companyProfileRoute from './companyProfile.route';
+import interviewRoute from './interview.route';
 
 const router = express.Router();
 
@@ -27,6 +29,14 @@ const defaultRoutes = [
   {
     path: '/roles',
     route: roleRoute,
+  },
+  {
+    path: '/company',
+    route: companyProfileRoute,
+  },
+  {
+    path: '/interviews',
+    route: interviewRoute,
   },
 ];
 

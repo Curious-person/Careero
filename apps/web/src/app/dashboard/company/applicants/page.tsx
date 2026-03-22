@@ -22,9 +22,15 @@ import {
     Star,
     MoreVertical,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Video,
+    Phone,
+    UserCheck,
+    Loader2,
+    Send
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { scheduleInterview, checkInterviewActive, type Interview, type MeetingType } from "@/lib/interviewsApi"
 
 interface Applicant {
     id: string
@@ -237,6 +243,12 @@ export default function ApplicantsPage() {
         setIsAppointmentModalOpen(true)
     }
 
+    const handleInterviewScheduled = (interview: Interview) => {
+        // Update the applicant's status to interview
+        // In production, this would refresh from API
+        console.log("Interview scheduled:", interview)
+    }
+
     const handleReject = (applicantId: string) => {
         console.log("Rejecting applicant:", applicantId)
         setIsReviewModalOpen(false)
@@ -444,6 +456,7 @@ export default function ApplicantsPage() {
                         setIsAppointmentModalOpen(false)
                         setSelectedApplicant(null)
                     }}
+                    onInterviewScheduled={handleInterviewScheduled}
                 />
             )}
         </DashboardLayout>
@@ -711,13 +724,25 @@ function ReviewModal({
 function AppointmentModal({
     applicant,
     onClose,
+    onInterviewScheduled,
 }: {
     applicant: Applicant
     onClose: () => void
+    onInterviewScheduled: (interview: Interview) => void
 }) {
     const [selectedDate, setSelectedDate] = useState("")
     const [selectedTime, setSelectedTime] = useState("")
-    const [meetingType, setMeetingType] = useState<"video" | "phone" | "in-person">("video")
+    const [meetingType, setMeetingType] = useState<MeetingType>("video")
+    const [additionalMessage, setAdditionalMessage] = useState("")
+    
+    // API state
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [invitationSent, setInvitationSent] = useState(false)
+    const [interviewId, setInterviewId] = useState<string | null>(null)
+    
+    // Active state - buttons enabled when date/time matches current time
+    const [isActive, setIsActive] = useState(false)
+    const [isToday, setIsToday] = useState(false)
 
     const timeSlots = [
         "09:00 AM",
@@ -735,16 +760,231 @@ function AppointmentModal({
         "04:00 PM",
     ]
 
-    const handleSchedule = () => {
-        console.log("Scheduling appointment:", {
-            applicantId: applicant.id,
-            date: selectedDate,
-            time: selectedTime,
-            type: meetingType,
-        })
-        onClose()
+    // Check if interview is active when date/time changes
+    React.useEffect(() => {
+        const checkActive = async () => {
+            if (interviewId && invitationSent) {
+                try {
+                    const response = await checkInterviewActive(interviewId)
+                    setIsActive(response.isActive)
+                    setIsToday(response.isToday)
+                } catch (error) {
+                    console.error('Failed to check interview status:', error)
+                }
+            }
+        }
+
+        // Check immediately
+        checkActive()
+
+        // Check every 30 seconds
+        const interval = setInterval(checkActive, 30000)
+        return () => clearInterval(interval)
+    }, [interviewId, invitationSent])
+
+    const handleSchedule = async () => {
+        if (!selectedDate || !selectedTime) return
+
+        setIsSubmitting(true)
+        try {
+            // In production, you would get the roleId from the selected role
+            // For now, we'll use a placeholder - this should come from context or props
+            const roleId = "placeholder-role-id" // TODO: Get from context
+
+            const response = await scheduleInterview({
+                applicantId: applicant.id,
+                roleId,
+                date: selectedDate,
+                time: selectedTime,
+                duration: 60,
+                meetingType,
+                notes: additionalMessage,
+            })
+
+            setInvitationSent(true)
+            setInterviewId(response.interview._id)
+            setIsActive(false)
+            setIsToday(new Date(response.interview.date).toDateString() === new Date().toDateString())
+            
+            // Notify parent
+            onInterviewScheduled(response.interview)
+        } catch (error: any) {
+            console.error('Failed to schedule interview:', error)
+            alert(error.response?.data?.message || 'Failed to schedule interview. Please try again.')
+        } finally {
+            setIsSubmitting(false)
+        }
     }
 
+    const handleCancel = () => {
+        // Only close if invitation hasn't been sent
+        if (!invitationSent) {
+            onClose()
+        }
+    }
+
+    // Render invitation sent state
+    if (invitationSent && interviewId) {
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+                <div
+                    className="absolute inset-0 bg-black/50"
+                    onClick={handleCancel}
+                />
+                <div className="relative bg-white rounded-[20px] w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+                    <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+                        <h2 className="text-xl font-bold">Interview Invitation Sent</h2>
+                        <button
+                            onClick={handleCancel}
+                            disabled={!isActive}
+                            className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors disabled:opacity-50"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
+                    <div className="p-6 space-y-6">
+                        {/* Success Icon */}
+                        <div className="flex justify-center">
+                            <div className="h-20 w-20 rounded-full bg-green-100 flex items-center justify-center">
+                                <Mail className="h-10 w-10 text-green-600" />
+                            </div>
+                        </div>
+
+                        {/* Applicant Info */}
+                        <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <span className="text-sm font-medium text-primary">
+                                    {applicant.name.split(" ").map((n) => n[0]).join("")}
+                                </span>
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium">{applicant.name}</p>
+                                <p className="text-xs text-muted-foreground">{applicant.appliedRole}</p>
+                            </div>
+                        </div>
+
+                        {/* Status Message */}
+                        <div className="text-center space-y-2">
+                            <p className="text-sm text-muted-foreground">
+                                Interview invitation has been sent to
+                            </p>
+                            <p className="text-base font-semibold">{applicant.email}</p>
+                        </div>
+
+                        {/* Interview Details */}
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-sm flex items-center gap-2">
+                                    <Calendar className="h-4 w-4" />
+                                    Interview Details
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Date:</span>
+                                    <span className="font-medium">
+                                        {selectedDate ? new Date(selectedDate).toLocaleDateString('en-US', { 
+                                            weekday: 'short', 
+                                            month: 'short', 
+                                            day: 'numeric' 
+                                        }) : '-'}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Time:</span>
+                                    <span className="font-medium">{selectedTime}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Type:</span>
+                                    <span className="font-medium capitalize">{meetingType} Call</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Status Indicator */}
+                        <div className={cn(
+                            "p-4 rounded-lg border-2 transition-colors",
+                            isActive 
+                                ? "border-green-200 bg-green-50" 
+                                : isToday 
+                                    ? "border-yellow-200 bg-yellow-50"
+                                    : "border-gray-200 bg-gray-50"
+                        )}>
+                            <div className="flex items-start gap-3">
+                                {isActive ? (
+                                    <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                                ) : isToday ? (
+                                    <Clock className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                                ) : (
+                                    <Calendar className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                                )}
+                                <div className="flex-1">
+                                    <p className={cn(
+                                        "text-sm font-medium",
+                                        isActive ? "text-green-900" : isToday ? "text-yellow-900" : "text-gray-900"
+                                    )}>
+                                        {isActive 
+                                            ? "Interview is now active!" 
+                                            : isToday 
+                                                ? "Waiting for interview time..."
+                                                : "Interview scheduled for a future date"}
+                                    </p>
+                                    <p className={cn(
+                                        "text-xs mt-1",
+                                        isActive ? "text-green-700" : isToday ? "text-yellow-700" : "text-gray-600"
+                                    )}>
+                                        {isActive 
+                                            ? "You can now start the interview" 
+                                            : isToday 
+                                                ? "Buttons will be enabled at the scheduled time"
+                                                : "Check back on the interview date"}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="space-y-2">
+                            <Button
+                                className="w-full gap-2"
+                                disabled={!isActive}
+                            >
+                                <Video className="h-4 w-4" />
+                                {isActive ? "Start Video Interview" : "Start Interview (Waiting...)"}
+                            </Button>
+                            
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button
+                                    variant="outline"
+                                    className="gap-2"
+                                    disabled={!isActive}
+                                >
+                                    <CheckCircle className="h-4 w-4" />
+                                    Approve
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="gap-2 text-red-600 hover:text-red-700"
+                                    disabled={!isActive}
+                                >
+                                    <XCircle className="h-4 w-4" />
+                                    Reject
+                                </Button>
+                            </div>
+                        </div>
+
+                        {!isActive && (
+                            <p className="text-xs text-center text-muted-foreground">
+                                Buttons will be enabled when the interview date and time matches the current time
+                            </p>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    // Render scheduling form
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div
@@ -782,34 +1022,37 @@ function AppointmentModal({
                             <button
                                 onClick={() => setMeetingType("video")}
                                 className={cn(
-                                    "p-3 rounded-lg border text-sm font-medium transition-colors",
+                                    "p-3 rounded-lg border text-sm font-medium transition-colors flex items-center justify-center gap-2",
                                     meetingType === "video"
                                         ? "border-primary bg-primary/5 text-primary"
                                         : "border-input hover:bg-muted"
                                 )}
                             >
-                                Video Call
+                                <Video className="h-4 w-4" />
+                                Video
                             </button>
                             <button
                                 onClick={() => setMeetingType("phone")}
                                 className={cn(
-                                    "p-3 rounded-lg border text-sm font-medium transition-colors",
+                                    "p-3 rounded-lg border text-sm font-medium transition-colors flex items-center justify-center gap-2",
                                     meetingType === "phone"
                                         ? "border-primary bg-primary/5 text-primary"
                                         : "border-input hover:bg-muted"
                                 )}
                             >
+                                <Phone className="h-4 w-4" />
                                 Phone
                             </button>
                             <button
                                 onClick={() => setMeetingType("in-person")}
                                 className={cn(
-                                    "p-3 rounded-lg border text-sm font-medium transition-colors",
+                                    "p-3 rounded-lg border text-sm font-medium transition-colors flex items-center justify-center gap-2",
                                     meetingType === "in-person"
                                         ? "border-primary bg-primary/5 text-primary"
                                         : "border-input hover:bg-muted"
                                 )}
                             >
+                                <UserCheck className="h-4 w-4" />
                                 In-Person
                             </button>
                         </div>
@@ -855,6 +1098,8 @@ function AppointmentModal({
                         <textarea
                             id="message"
                             rows={3}
+                            value={additionalMessage}
+                            onChange={(e) => setAdditionalMessage(e.target.value)}
                             className="w-full mt-2 px-3 py-2 rounded-md border border-input bg-background text-sm resize-none"
                             placeholder="Add a personal message to include in the invitation..."
                         />
@@ -867,10 +1112,19 @@ function AppointmentModal({
                     <Button
                         onClick={handleSchedule}
                         className="gap-2"
-                        disabled={!selectedDate || !selectedTime}
+                        disabled={!selectedDate || !selectedTime || isSubmitting}
                     >
-                        <Calendar className="h-4 w-4" />
-                        Send Invitation
+                        {isSubmitting ? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Sending...
+                            </>
+                        ) : (
+                            <>
+                                <Send className="h-4 w-4" />
+                                Send Invitation
+                            </>
+                        )}
                     </Button>
                 </div>
             </div>

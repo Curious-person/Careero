@@ -820,8 +820,8 @@ export default function StudentProfilePage() {
                         </h3>
                         <p className="text-gray-500 max-w-md mx-auto leading-relaxed font-medium">
                           {generatingResume 
-                            ? 'Our local language node is mapping your exact School Certifications, Skill Graph Points, and Activity into a structured Applicant Tracking System standard.'
-                            : 'Let our on-device LLM automatically extract your real skills, validated artifacts, and academic records to write the perfect foundational bullet points for you.'}
+                            ? 'Gemini Cloud AI is mapping your exact School Certifications, Skill Graph Points, and Activity into a structured Applicant Tracking System standard.'
+                            : 'Let our Cloud-powered LLM automatically extract your real skills, validated artifacts, and academic records to write the perfect foundational bullet points for you.'}
                         </p>
                         {!generatingResume && (
                           <Button onClick={handleGenerateResume} className="mt-8 font-bold text-white bg-blue-600 hover:bg-blue-700 px-8 py-6 rounded-full shadow-lg shadow-blue-600/20 text-md group">

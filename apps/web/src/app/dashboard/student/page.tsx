@@ -17,21 +17,54 @@ const studentNavigation = [
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null)
+  const [accumStats, setAccumStats] = useState<{ inProgress: number; completed: number; inProgressItems: any[]; completedItems: any[] }>({ 
+    inProgress: 0, 
+    completed: 0, 
+    inProgressItems: [], 
+    completedItems: [] 
+  })
+  const [accumTab, setAccumTab] = useState<'active' | 'done'>('active')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchData = async () => {
       try {
-        const { data } = await apiClient.get('/profile/me')
-        setProfile(data.data)
+        const [profileRes, accumRes] = await Promise.all([
+          apiClient.get('/profile/me'),
+          apiClient.get('/accumulations/student/available').catch(() => ({ data: { data: [] } })),
+        ])
+        const prof = profileRes.data.data
+        setProfile(prof)
+
+        // Derive counts using the student's name
+        const studentName = `${prof?.basicInfo?.firstName} ${prof?.basicInfo?.lastName}`.trim()
+        const accums: any[] = accumRes.data.data || []
+        const inProgress = accums.filter(a =>
+          a.participantList?.some((p: any) => p.name === studentName && p.status === 'In Progress')
+        ).length
+        const completed = accums.filter(a =>
+          a.participantList?.some((p: any) => p.name === studentName && p.status === 'Completed')
+        ).length
+        
+        // Find real in-progress items for the list
+        const inProgressItems = accums.filter(a =>
+          a.participantList?.some((p: any) => p.name === studentName && p.status === 'In Progress')
+        ).slice(0, 3)
+
+        // Find real completed items for the list
+        const completedItems = accums.filter(a =>
+          a.participantList?.some((p: any) => p.name === studentName && p.status === 'Completed')
+        ).slice(0, 3)
+
+        setAccumStats({ inProgress, completed, inProgressItems, completedItems })
       } catch (err: any) {
         setError('Failed to load profile. Please complete onboarding.')
       } finally {
         setLoading(false)
       }
     }
-    fetchProfile()
+    fetchData()
   }, [])
 
   if (loading) {
@@ -99,8 +132,8 @@ export default function DashboardPage() {
             icon={Trophy}
             iconColor="text-yellow-600"
             iconBg="bg-yellow-100"
-            trend="+0 this week"
-            trendUp={true}
+            trend={accumStats.completed > 0 ? `+${accumStats.completed * 100} this week` : '+0 this week'}
+            trendUp={accumStats.completed > 0}
           />
           <StatCard
             title="Unlocked Offers"
@@ -114,13 +147,13 @@ export default function DashboardPage() {
           />
           <StatCard
             title="Active Accumulations"
-            value="3"
-            description="In progress tasks"
+            value={accumStats.inProgress.toString()}
+            description="In progress accumulations"
             icon={Layers}
             iconColor="text-blue-600"
             iconBg="bg-blue-100"
-            trend="1 closing soon"
-            trendUp={false}
+            trend={accumStats.completed > 0 ? `${accumStats.completed} completed` : 'None completed yet'}
+            trendUp={accumStats.completed > 0}
           />
           <StatCard
             title="Verified Artifacts"
@@ -264,38 +297,67 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Active Accumulations */}
+          {/* My Accumulations (Tabbed) */}
           <Card className="rounded-[32px] border-none shadow-[0_2px_10px_rgba(0,0,0,0.04)] bg-white h-full flex flex-col pt-2">
             <CardHeader className="pb-4">
               <div className="flex justify-between items-center">
                 <div>
-                  <CardTitle className="text-lg">Active Accumulations</CardTitle>
-                  <CardDescription className="mt-1">Tasks you are currently undertaking</CardDescription>
+                  <CardTitle className="text-lg">My Accumulations</CardTitle>
+                  <CardDescription className="mt-1">Track your progress and wins</CardDescription>
                 </div>
-                <Button variant="ghost" size="sm" className="text-blue-600 font-bold hover:bg-blue-50 rounded-xl" asChild>
-                  <a href="/dashboard/student/accumulations">Browse <ArrowRight className="w-4 h-4 ml-1" /></a>
-                </Button>
+                <div className="flex bg-gray-100 p-1 rounded-xl">
+                  <button 
+                    onClick={() => setAccumTab('active')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${accumTab === 'active' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                  >
+                    Active
+                  </button>
+                  <button 
+                    onClick={() => setAccumTab('done')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${accumTab === 'done' ? 'bg-white shadow-sm text-green-600' : 'text-gray-400 hover:text-gray-600'}`}
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col gap-4">
-              <AccumulationItem
-                title="Advanced React Architecture"
-                type="Course"
-                progress={75}
-                points={150}
-              />
-              <AccumulationItem
-                title="Cybersecurity Threat Hunting CTF"
-                type="Challenge"
-                progress={45}
-                points={300}
-              />
-              <AccumulationItem
-                title="Campus UI/UX Hackathon"
-                type="Event"
-                progress={15}
-                points={200}
-              />
+              {accumTab === 'active' ? (
+                accumStats.inProgressItems.length > 0 ? (
+                  accumStats.inProgressItems.map((item: any) => (
+                    <AccumulationItem
+                      key={item._id}
+                      title={item.title}
+                      type={item.type}
+                      progress={65} 
+                      points={item.points}
+                    />
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-center text-gray-400">
+                    <Layers className="w-8 h-8 opacity-20 mb-2" />
+                    <p className="text-xs font-medium italic">No active accumulations</p>
+                  </div>
+                )
+              ) : (
+                accumStats.completedItems.length > 0 ? (
+                  accumStats.completedItems.map((item: any) => (
+                    <AccumulationItem
+                      key={item._id}
+                      title={item.title}
+                      type={item.type}
+                      progress={100} 
+                      points={item.points}
+                      isCompleted={true}
+                    />
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-center text-gray-400">
+                    <CheckCircle className="w-8 h-8 opacity-20 mb-2" />
+                    <p className="text-xs font-medium italic">No completed accumulations yet</p>
+                  </div>
+                )
+              )}
             </CardContent>
           </Card>
         </div>
@@ -384,33 +446,46 @@ function AccumulationItem({
   type,
   progress,
   points,
+  isCompleted = false,
 }: {
   title: string
   type: string
   progress: number
   points: number
+  isCompleted?: boolean
 }) {
   return (
-    <div className="flex flex-col gap-3 p-4 rounded-2xl border border-gray-50 bg-gray-50/50 hover:bg-blue-50/50 hover:border-blue-100 transition-colors cursor-pointer group">
+    <div className={`flex flex-col gap-3 p-4 rounded-2xl border transition-all cursor-pointer group ${
+      isCompleted 
+        ? 'bg-emerald-50/30 border-emerald-50 hover:bg-emerald-50/50 hover:border-emerald-100' 
+        : 'bg-gray-50/50 border-gray-50 hover:bg-blue-50/50 hover:border-blue-100'
+    }`}>
       <div className="flex items-start justify-between">
         <div className="space-y-1 w-full">
-          <p className="text-sm font-bold text-gray-900 group-hover:text-blue-700 transition-colors flex items-center justify-between">
-            {title}
-             <span className="text-[10px] font-black px-2 py-0.5 rounded text-blue-700 bg-blue-100">+{points} PTS</span>
+          <p className={`text-sm font-bold ${isCompleted ? 'text-emerald-900' : 'text-gray-900 group-hover:text-blue-700'} transition-colors flex items-center justify-between`}>
+            <span className="flex items-center gap-1.5">
+              {isCompleted && <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />}
+              {title}
+            </span>
+             <span className={`text-[10px] font-black px-2 py-0.5 rounded ${isCompleted ? 'text-emerald-700 bg-emerald-100' : 'text-blue-700 bg-blue-100'}`}>
+               +{points} PTS
+             </span>
           </p>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">{type}</span>
+            <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">
+              {isCompleted ? 'Milestone' : type}
+            </span>
           </div>
         </div>
       </div>
       <div className="space-y-1.5 mt-1">
         <div className="flex justify-between text-xs font-bold text-gray-500">
-          <span>Progress</span>
-          <span className="text-blue-600">{progress}%</span>
+          <span>{isCompleted ? 'Status' : 'Progress'}</span>
+          <span className={isCompleted ? 'text-emerald-600' : 'text-blue-600'}>{isCompleted ? 'Completed' : `${progress}%`}</span>
         </div>
-        <div className="h-2 w-full bg-blue-100/50 rounded-full overflow-hidden">
+        <div className={`h-2 w-full rounded-full overflow-hidden ${isCompleted ? 'bg-emerald-100/50' : 'bg-blue-100/50'}`}>
           <div 
-            className="h-full bg-blue-500 rounded-full transition-all duration-500" 
+            className={`h-full rounded-full transition-all duration-500 ${isCompleted ? 'bg-emerald-500' : 'bg-blue-500'}`} 
             style={{ width: `${progress}%` }}
           />
         </div>

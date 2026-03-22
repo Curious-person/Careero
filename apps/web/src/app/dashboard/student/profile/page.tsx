@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import Image from 'next/image'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
-import { Loader2, ShieldCheck, ShieldAlert, BadgeInfo, Network, Award, LayoutDashboard, Layers, Briefcase, Users, Settings, HelpCircle, ChevronRight, Eye, UploadCloud, CheckCircle2, ChevronDown, ChevronUp, FileText, Download, Save, RefreshCw } from 'lucide-react'
+import { Loader2, ShieldCheck, ShieldAlert, BadgeInfo, Network, Award, LayoutDashboard, Layers, Briefcase, Users, CheckCircle, HelpCircle, ChevronRight, Eye, UploadCloud, CheckCircle2, ChevronDown, ChevronUp, FileText, Download, Save, RefreshCw } from 'lucide-react'
 import { toast } from "sonner"
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts'
 
@@ -47,11 +47,17 @@ export default function StudentProfilePage() {
     if (profile?.resumeMarkdown) setResumeText(profile.resumeMarkdown)
   }, [profile])
 
+  const [accumulations, setAccumulations] = useState<any[]>([])
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const { data } = await apiClient.get('/profile/me')
-        setProfile(data.data)
+        const [profileRes, accumRes] = await Promise.all([
+          apiClient.get('/profile/me'),
+          apiClient.get('/accumulations/student/available').catch(() => ({ data: { data: [] } })),
+        ])
+        setProfile(profileRes.data.data)
+        setAccumulations(accumRes.data.data || [])
       } catch (err: any) {
         setError('Failed to load profile. Please complete onboarding if you haven\'t yet.')
       } finally {
@@ -194,10 +200,15 @@ export default function StudentProfilePage() {
   const hardSkillsScore = profile.pointsBreakdown?.hardSkills || 0; 
   const softSkillsScore = profile.pointsBreakdown?.softSkills || 0; 
 
+  const studentFullName = `${profile.basicInfo.firstName} ${profile.basicInfo.lastName}`.trim();
+  const completedAccumList = accumulations.filter((a: any) => 
+    a.participantList?.some((p: any) => p.name === studentFullName && p.status === 'Completed')
+  );
+
   const radarData = profile ? [
     { subject: 'Academic Rating', score: profile.pointsBreakdown?.academic || 0, fullMark: 1000, desc: 'Weighted GPA from university courses.', details: profile.academicRecords.map((r: any) => ({ label: r.subject, value: `${r.grade} Grade` })) },
     { subject: 'Valid Certs', score: profile.pointsBreakdown?.cert || 0, fullMark: 1000, desc: 'Validated external credentials.', details: profile.certifications.filter((c: any) => c.verified).map((c: any) => ({ label: c.classification?.labels?.[0] || 'Verification', value: `${c.awardedPoints} pts` })) },
-    { subject: 'Accumulations', score: profile.pointsBreakdown?.accumulations || 0, fullMark: 1000, desc: 'Bounty & hackathon performance.', details: [] },
+    { subject: 'Accumulations', score: profile.pointsBreakdown?.accumulations || 0, fullMark: 1000, desc: 'Bounty & hackathon performance.', details: completedAccumList.map((a: any) => ({ label: a.title, value: `+${a.points} pts` })) },
     { subject: 'Extracurricular', score: profile.pointsBreakdown?.achievement || 0, fullMark: 1000, desc: 'Leadership & club participation awards.', details: [] },
     { subject: 'Hard Skills', score: profile.pointsBreakdown?.hardSkills || 0, fullMark: 1000, desc: `${hardSkillsCount} technical capabilities strictly mapped.`, details: profile.skillTags.filter((t: any) => t.tag && !['leadership', 'communication', 'teamwork', 'agile', 'scrum'].includes(t.tag.toLowerCase())).map((t: any) => ({ label: typeof t === 'string' ? t : t.tag, value: typeof t === 'string' ? '100%' : `${Math.round(t.confidence * 100)}% Confidence` })) },
     { subject: 'Soft Skills', score: profile.pointsBreakdown?.softSkills || 0, fullMark: 1000, desc: `${softSkillsCount} interpersonal strengths verified.`, details: profile.skillTags.filter((t: any) => t.tag && ['leadership', 'communication', 'teamwork', 'agile', 'scrum'].includes(t.tag.toLowerCase())).map((t: any) => ({ label: typeof t === 'string' ? t : t.tag, value: typeof t === 'string' ? '100%' : `${Math.round(t.confidence * 100)}% Confidence` })) }
@@ -381,21 +392,106 @@ export default function StudentProfilePage() {
                   </CardContent>
                 </Card>
 
-                {/* Company Accumulations */}
-                <Card className="rounded-[32px] shadow-sm border-gray-100 bg-black text-white h-fit">
-                  <CardHeader>
-                    <CardTitle className="text-2xl text-white">Company Accumulations</CardTitle>
-                    <CardDescription className="text-gray-400">Locked behind institutional verification.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="pb-8">
-                    <p className="text-gray-300 leading-relaxed mb-8">
-                      Participate in real-world technical bounties, hackathons, and design sprints hosted directly by partner companies tracking your Skill Graph.
-                    </p>
-                    <Button onClick={handleRestrictedAction} className="rounded-full bg-white text-black hover:bg-gray-100 w-full h-12 font-bold group">
-                      Browse Challenges <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  </CardContent>
-                </Card>
+                {/* Accumulations Tracker */}
+                {(() => {
+                  const studentName = profile?.basicInfo ? `${profile.basicInfo.firstName} ${profile.basicInfo.lastName}`.trim() : ''
+                  const myAccums = accumulations.filter(a =>
+                    a.participantList?.some((p: any) => p.name === studentName)
+                  )
+                  const inProgress = myAccums.filter(a =>
+                    a.participantList?.find((p: any) => p.name === studentName)?.status === 'In Progress'
+                  )
+                  const completed = myAccums.filter(a =>
+                    a.participantList?.find((p: any) => p.name === studentName)?.status === 'Completed'
+                  )
+
+                  return (
+                    <Card className="rounded-[32px] shadow-2xl border-none bg-zinc-950 text-white h-fit overflow-hidden relative group">
+                      {/* Decorative gradient blur */}
+                      <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-600/10 blur-[80px] rounded-full group-hover:bg-blue-600/20 transition-all duration-700" />
+                      
+                      <CardHeader className="relative z-10">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <CardTitle className="text-2xl font-black text-white tracking-tight">Your Path Track</CardTitle>
+                            <CardDescription className="text-zinc-500 font-medium mt-1">
+                              {myAccums.length === 0
+                                ? 'No accumulations yet. Start your journey.'
+                                : `${completed.length} Milestones Reached · ${inProgress.length} Active`}
+                            </CardDescription>
+                          </div>
+                          <div className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
+                            <Layers className="w-5 h-5 text-blue-400" />
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pb-8 space-y-4 relative z-10">
+                        {myAccums.length === 0 ? (
+                          <div className="space-y-6">
+                            <p className="text-zinc-400 leading-relaxed text-sm">
+                              Participate in real-world technical bounties, hackathons, and design sprints hosted directly by partner companies and your school to boost your Skill Graph.
+                            </p>
+                            <a href="/dashboard/student/accumulations" className="block">
+                              <Button className="rounded-2xl bg-white text-black hover:bg-zinc-200 w-full h-12 font-bold group transition-all">
+                                Browse Challenges <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                              </Button>
+                            </a>
+                          </div>
+                        ) : (
+                          <div className="space-y-6">
+                            {inProgress.length > 0 && (
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">In Progress</p>
+                                  <div className="h-px bg-zinc-800 flex-1 ml-4" />
+                                </div>
+                                {inProgress.map((a: any) => (
+                                  <div key={a._id} className="group/item flex items-center justify-between bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 rounded-[20px] px-4 py-3.5 transition-all">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)] flex-shrink-0" />
+                                      <p className="text-sm font-bold text-zinc-200 truncate">{a.title}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3 shrink-0 ml-3">
+                                      <span className="text-xs font-black text-blue-400">+{a.points}</span>
+                                      <span className="text-[10px] px-2 py-0.5 rounded-lg bg-white/5 text-zinc-500 font-bold border border-white/5">{a.type}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {completed.length > 0 && (
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Successes</p>
+                                  <div className="h-px bg-zinc-800 flex-1 ml-4" />
+                                </div>
+                                {completed.map((a: any) => (
+                                  <div key={a._id} className="flex items-center justify-between bg-emerald-500/[0.03] border border-emerald-500/10 rounded-[20px] px-4 py-3.5">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div className="w-4 h-4 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                                        <CheckCircle className="w-2.5 h-2.5 text-emerald-500" />
+                                      </div>
+                                      <p className="text-sm font-bold text-zinc-300 truncate">{a.title}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3 shrink-0 ml-3">
+                                      <span className="text-xs font-black text-emerald-400">+{a.points}</span>
+                                      <span className="text-[10px] px-2 py-0.5 rounded-lg bg-emerald-500/5 text-emerald-500/40 font-bold border border-emerald-500/5 uppercase tracking-tighter">Done</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <a href="/dashboard/student/accumulations" className="block pt-2">
+                              <Button variant="outline" className="rounded-2xl border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 hover:border-white/20 w-full font-bold h-11 transition-all">
+                                View Full Dashboard <ChevronRight className="w-4 h-4 ml-1" />
+                              </Button>
+                            </a>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                })()}
               </motion.div>
             )}
 

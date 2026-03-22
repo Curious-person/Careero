@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { logoutSession } from "@/lib/apiClient"
+import { logoutSession, apiClient } from "@/lib/apiClient"
 import {
   LayoutDashboard,
   Settings,
@@ -17,7 +17,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 interface NavItem {
   name: string
@@ -36,6 +36,17 @@ export default function DashboardLayout({ children, navigation: navProp }: Dashb
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [currentUser, setCurrentUser] = useState<{ displayName: string; email: string; role: string } | null>(null)
+
+  useEffect(() => {
+    apiClient.get('/auth/me')
+      .then(res => setCurrentUser(res.data))
+      .catch(() => {}) // Silently fail — user stays as null
+  }, [])
+
+  const initials = currentUser
+    ? currentUser.displayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+    : '?'
 
   const defaultNavigation: NavItem[] = [
     { name: "Dashboard", href: "/dashboard/company", icon: LayoutDashboard },
@@ -128,12 +139,12 @@ export default function DashboardLayout({ children, navigation: navProp }: Dashb
           <div className="p-4 border-t">
             <div className={`flex items-center gap-3 mb-4 ${sidebarCollapsed ? "justify-center" : ""}`}>
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <span className="text-sm font-medium text-primary">JD</span>
+                <span className="text-sm font-medium text-primary">{initials}</span>
               </div>
               {!sidebarCollapsed && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">John Doe</p>
-                  <p className="text-xs text-muted-foreground truncate">john@example.com</p>
+                  <p className="text-sm font-medium truncate">{currentUser?.displayName ?? '...'}</p>
+                  <p className="text-xs text-muted-foreground truncate">{currentUser?.email ?? ''}</p>
                 </div>
               )}
             </div>

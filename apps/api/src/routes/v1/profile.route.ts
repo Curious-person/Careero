@@ -3,6 +3,15 @@ import * as profileController from '../../controllers/profile.controller';
 
 const router = Router();
 
+// All student profiles (school dashboard)
+router.get('/students', profileController.getAllStudents);
+router.get('/:id', profileController.getStudentById);
+
+// School admin actions
+router.post('/admin/create', profileController.adminCreateStudent);
+router.patch('/:id/verify', profileController.verifyStudent);
+router.delete('/:id', profileController.deleteStudent);
+
 // Retrieve mockup subjects and tags for the UI confirmation step
 router.get('/mock-academic', profileController.getMockAcademicData);
 

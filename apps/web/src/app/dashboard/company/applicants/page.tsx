@@ -114,6 +114,7 @@ export default function ApplicantsPage() {
     const [loading, setLoading] = useState(true)
 
     // Fetch data from API or mock data
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         const fetchData = async () => {
             try {

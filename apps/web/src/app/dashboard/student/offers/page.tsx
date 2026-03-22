@@ -55,7 +55,7 @@ export default function StudentOffersPage() {
         
         if (studentId && offersList.length > 0) {
            const applied = offersList.filter((m: any) => m.role.appliedStudents?.includes(studentId)).map((m: any) => m.role._id);
-           if (applied.length > 0) setAppliedOffers(applied);
+           setAppliedOffers(applied);
         }
       } catch (err: any) {
         console.error('Failed to fetch matches:', err)

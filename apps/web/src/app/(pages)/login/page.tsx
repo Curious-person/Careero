@@ -218,7 +218,7 @@ export default function LoginPage() {
                 transition={{ duration: 0.3 }}
                 className="text-center"
               >
-                <div className="w-20 h-20 bg-white rounded-[32px] shadow-xl border border-gray-100 flex items-center justify-center mb-8 p-4">
+                <div className="w-20 h-20 bg-white rounded-[32px] shadow-xl border border-gray-100 flex items-center justify-center mb-8 p-4 mx-auto">
                   <Image src="/logo.png" alt="Careero" width={80} height={80} className="object-contain" priority />
                 </div>
                 <h1 className="text-2xl font-bold mb-2">Welcome to Careero</h1>

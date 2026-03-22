@@ -95,7 +95,11 @@ export const deriveSkillTags = (records: IAcademicRecord[], certs: any[] = []): 
     }
   });
 
-  return Array.from(tagMap.entries()).map(([tag, confidence]) => ({ tag, confidence }));
+  return Array.from(tagMap.entries()).map(([tag, confidence]) => {
+    // Normalize: ensure it starts with exactly one #
+    const normalizedTag = `#${tag.replace(/^#+/, '')}`;
+    return { tag: normalizedTag, confidence };
+  });
 };
 
 // Convert 1.0-3.0 scale to 100-60 Score mapped linearly (Score = 120 - 20 * Grade)

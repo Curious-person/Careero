@@ -45,12 +45,12 @@ export const Hero = () => {
             <Sparkles className="w-3 h-3 text-brand-orange" />
             Your Career, Reimagined
           </span>
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight mb-8 max-w-5xl mx-auto leading-[1.05]">
-            The career platform for <br />
-            <span className="text-gray-400">the next generation.</span>
+          <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter mb-8 max-w-5xl mx-auto leading-[0.95] bg-clip-text text-transparent bg-gradient-to-b from-black to-gray-500">
+            Verify Your Skills. <br />
+            AI-Match Your Future.
           </h1>
           <p className="text-xl text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
-            Careero helps you discover your potential, track your progress, and connect directly with companies who actually care about your skills.
+            The all-in-one ecosystem to verify your skills, track your professional roadmap, and unlock direct matches with world-class tech companies.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/dashboard" className="w-full sm:w-auto">

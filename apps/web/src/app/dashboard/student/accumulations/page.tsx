@@ -72,7 +72,7 @@ const statusColor = (s: string) => {
 
 // ─── Countdown Hook ───────────────────────────────────────────────────────
 function useCountdown(deadline: string) {
-  const calc = () => {
+  const calc = useCallback(() => {
     const end = new Date(deadline).getTime()
     const now = Date.now()
     const diff = Math.max(0, end - now)
@@ -83,12 +83,15 @@ function useCountdown(deadline: string) {
       seconds: Math.floor((diff % 60000) / 1000),
       expired: diff === 0,
     }
-  }
+  }, [deadline])
+
   const [time, setTime] = useState(calc)
+
   useEffect(() => {
     const t = setInterval(() => setTime(calc()), 1000)
     return () => clearInterval(t)
-  }, [deadline])
+  }, [calc])
+
   return time
 }
 
@@ -296,7 +299,7 @@ function ActiveAccumulationView({
               </h3>
             </div>
             {countdown.expired ? (
-              <p className="text-red-500 font-bold text-sm">This accumulation's deadline has passed.</p>
+              <p className="text-red-500 font-bold text-sm">This accumulation&apos;s deadline has passed.</p>
             ) : (
               <div className="grid grid-cols-4 gap-2 text-center">
                 {[
@@ -430,10 +433,10 @@ export default function StudentAccumulationsPage() {
       const refreshed = accumulations.find(a => a._id === activeView._id)
       if (refreshed) setActiveView(refreshed)
     }
-  }, [accumulations])
+  }, [accumulations, activeView])
 
-  const getParticipantStatus = (accum: Accumulation) =>
-    accum.participantList.find(p => p.name === studentName)?.status
+  const getParticipantStatus = useCallback((accum: Accumulation) =>
+    accum.participantList.find(p => p.name === studentName)?.status, [studentName])
 
   // Handle auto-opening from URL params (e.g. from Profile page)
   useEffect(() => {
@@ -450,7 +453,7 @@ export default function StudentAccumulationsPage() {
         }
       }
     }
-  }, [targetId, accumulations, loading, studentName])
+  }, [targetId, accumulations, loading, studentName, getParticipantStatus])
 
   const filtered = accumulations.filter(a => {
     if (filter !== 'All' && a.type !== filter) return false
@@ -769,7 +772,7 @@ export default function StudentAccumulationsPage() {
 
                 {selectedAccumForDrawer.skillTags.length > 0 && (
                   <div className="space-y-3">
-                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Skills You'll Master</h3>
+                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Skills You&apos;ll Master</h3>
                     <div className="flex flex-wrap gap-2">
                       {selectedAccumForDrawer.skillTags.map(tag => (
                         <span key={tag} className="px-3 py-1 bg-black text-white rounded-full text-xs font-bold">{tag}</span>

@@ -281,7 +281,7 @@ export default function StudentProfilePage() {
 
                       return (
                         <div key={i} className="px-3 py-1.5 bg-black text-white text-xs font-bold rounded-full inline-flex items-center shadow-sm">
-                          #{tagString}
+                          {tagString.startsWith('#') ? tagString : `#${tagString}`}
                         </div>
                       )
                     })}       </div>

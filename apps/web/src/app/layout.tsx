@@ -6,8 +6,13 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Careero",
-  description: "Your journey starts here",
+  title: "Careero | Build Your Digital Future",
+  description: "Verify your skills, track your progress, and get matched with top tech companies.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 }
 
 export default function RootLayout({

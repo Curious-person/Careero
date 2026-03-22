@@ -364,7 +364,8 @@ export const getStudentMatches = async (req: AuthRequest, res: Response, next: N
           ...role,
           requiredEvents
         },
-        careero: evaluation
+        careero: evaluation,
+        studentCompletedEventIds: completedEventIds,
       });
     }
 

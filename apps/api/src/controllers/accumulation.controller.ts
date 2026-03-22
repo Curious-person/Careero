@@ -387,18 +387,25 @@ export const joinAccumulation = async (req: AuthRequest, res: Response, next: Ne
     const studentCourse = (profile as any).basicInfo?.course || '';
 
     const { Accumulation } = await import('../models/Accumulation');
-    const accum = await Accumulation.findById(req.params.id);
+    const accum = await Accumulation.findById(req.params.id).lean();
     if (!accum) return res.status(404).json({ message: 'Accumulation not found' });
 
     // Check if already joined
-    const alreadyJoined = accum.participantList.some((p: any) => p.name === studentName);
+    const alreadyJoined = (accum.participantList || []).some((p: any) => p.name === studentName);
     if (alreadyJoined) return res.status(409).json({ message: 'You have already joined this accumulation.' });
 
-    accum.participantList.push({ name: studentName, course: studentCourse, status: 'In Progress' });
-    accum.participants = accum.participantList.length;
-    await accum.save();
+    // Use $push + $inc to avoid running full Mongoose validation (which trips on
+    // legacy documents that may have a non-enum value in the `source` field).
+    const updated = await Accumulation.findByIdAndUpdate(
+      req.params.id,
+      {
+        $push: { participantList: { name: studentName, course: studentCourse, status: 'In Progress' } },
+        $inc: { participants: 1 },
+      },
+      { returnDocument: 'after', runValidators: false }
+    );
 
-    res.json({ message: 'Successfully joined the accumulation!', data: accum });
+    res.json({ message: 'Successfully joined the accumulation!', data: updated });
   } catch (error) {
     next(error);
   }
@@ -421,17 +428,21 @@ export const completeAccumulation = async (req: AuthRequest, res: Response, next
     const studentName = `${(profile as any).basicInfo?.firstName} ${(profile as any).basicInfo?.lastName}`.trim();
 
     const { Accumulation } = await import('../models/Accumulation');
-    const accum = await Accumulation.findById(req.params.id);
+    const accum = await Accumulation.findById(req.params.id).lean();
     if (!accum) return res.status(404).json({ message: 'Accumulation not found' });
 
     // Find participant entry
-    const participant = accum.participantList.find((p: any) => p.name === studentName);
+    const participant = (accum.participantList || []).find((p: any) => p.name === studentName);
     if (!participant) return res.status(400).json({ message: 'You have not joined this accumulation yet.' });
     if ((participant as any).status === 'Completed') return res.status(409).json({ message: 'You have already completed this accumulation.' });
 
-    // Mark as completed in the accumulation
-    (participant as any).status = 'Completed';
-    await accum.save();
+    // Mark as completed — use findByIdAndUpdate to avoid re-validating the whole
+    // document (legacy docs may have a non-enum `source` value that fails validation).
+    await Accumulation.findByIdAndUpdate(
+      req.params.id,
+      { $set: { 'participantList.$[entry].status': 'Completed' } },
+      { arrayFilters: [{ 'entry.name': studentName }], runValidators: false }
+    );
 
     // ── Award Points to StudentProfile ──
     const bonusPoints = accum.points || 0;
@@ -456,7 +467,7 @@ export const completeAccumulation = async (req: AuthRequest, res: Response, next
         totalPoints: newTotal,
         'pointsBreakdown.accumulations': newAccumPts,
       }
-    });
+    }, { returnDocument: 'after' });
 
     res.json({
       message: `Accumulation completed! You earned +${bonusPoints} points and ${newTags.length} new skill tags.`,

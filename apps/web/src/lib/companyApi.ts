@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import { ICompanyDetails, ICompanyProfileInput, ITargetStudentInput } from '@/types/company';
+import { ICompanyDetails, ICompanyProfileInput, ITargetStudentInput, IApplicantsResponse, IApplicantStats } from '@/types/company';
 
 export interface CompanyDetailsResponse {
   message: string;
@@ -107,5 +107,36 @@ export const removeTargetStudent = async (id: string): Promise<CompanyProfileRes
  */
 export const getProfileCompleteness = async (): Promise<ProfileCompletenessResponse> => {
   const response = await apiClient.get<ProfileCompletenessResponse>('/company/profile/completeness');
+  return response.data;
+};
+
+// ===========================
+// APPLICANTS
+// ===========================
+
+/**
+ * Get all applicants across company roles with Careero match scores
+ * GET /api/v1/applicants/all
+ */
+export const getAllApplicantsWithScores = async (): Promise<IApplicantsResponse> => {
+  const response = await apiClient.get<IApplicantsResponse>('/applicants/all');
+  return response.data;
+};
+
+/**
+ * Get applicants for a specific role with Careero match scores
+ * GET /api/v1/applications/roles/:roleId/applicants
+ */
+export const getRoleApplicantsWithScores = async (roleId: string): Promise<IApplicantsResponse> => {
+  const response = await apiClient.get<IApplicantsResponse>(`/applications/roles/${roleId}/applicants`);
+  return response.data;
+};
+
+/**
+ * Get application statistics for the company
+ * GET /api/v1/applications/stats
+ */
+export const getApplicationStats = async (): Promise<{ stats: IApplicantStats }> => {
+  const response = await apiClient.get<{ stats: IApplicantStats }>('/applications/stats');
   return response.data;
 };

@@ -10,23 +10,18 @@ import {
     Activity,
     Award,
     Plus,
-    MessageSquare,
     Target,
     BarChart3,
     Star,
-    ArrowUpRight,
-    ArrowDownRight,
 } from "lucide-react"
-import { getCompanyDetails } from "@/lib/companyApi"
-import { ICompanyDetails } from "@/types/company"
+import { getCompanyDetails, getAllApplicantsWithScores, getApplicationStats } from "@/lib/companyApi"
+import { ICompanyDetails, IApplicant } from "@/types/company"
 
 interface StatCardProps {
     title: string
     value: string
     description: string
     icon: React.ElementType
-    trend: string
-    trendUp: boolean
 }
 
 function StatCard({
@@ -34,8 +29,6 @@ function StatCard({
     value,
     description,
     icon: Icon,
-    trend,
-    trendUp,
 }: StatCardProps) {
     return (
         <Card>
@@ -45,32 +38,17 @@ function StatCard({
             </CardHeader>
             <CardContent>
                 <div className="text-2xl font-bold">{value}</div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className={`font-medium ${trendUp ? "text-green-600" : "text-red-600"}`}>
-                        {trend}
-                    </span>
-                    <span>{description}</span>
+                <div className="text-xs text-muted-foreground">
+                    {description}
                 </div>
             </CardContent>
         </Card>
     )
 }
 
-interface StudentPotentialProps {
-    name: string
-    skill: string
-    potential: number
-    activities: number
-    engagement: string
-}
-
-function StudentPotentialCard({
-    name,
-    skill,
-    potential,
-    activities,
-    engagement,
-}: StudentPotentialProps) {
+function StudentPotentialCard({ applicant }: { applicant: IApplicant }) {
+    const { student, potential, engagement, activities } = applicant;
+    
     const getEngagementColor = (level: string) => {
         switch (level) {
             case "High":
@@ -84,10 +62,18 @@ function StudentPotentialCard({
         }
     }
 
+    const displayName = student.name || 
+                       (student.basicInfo?.firstName && student.basicInfo?.lastName 
+                           ? `${student.basicInfo.firstName} ${student.basicInfo.lastName}`
+                           : student.email.split('@')[0]);
+    
+    const skill = student.primarySkill || 
+                 (student.skillTags?.length ? student.skillTags[0].tag : 'No skills listed');
+
     return (
         <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
             <div className="space-y-1 flex-1">
-                <p className="text-sm font-medium">{name}</p>
+                <p className="text-sm font-medium">{displayName}</p>
                 <p className="text-xs text-muted-foreground">{skill}</p>
                 <div className="flex items-center gap-2 mt-2">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${getEngagementColor(engagement)}`}>
@@ -132,69 +118,33 @@ function QuickAction({
     )
 }
 
-interface ActivityFeedProps {
-    student: string
-    action: string
-    skill: string
-    time: string
-    impact: string
-}
-
-function ActivityFeedItem({
-    student,
-    action,
-    skill,
-    time,
-    impact,
-}: ActivityFeedProps) {
-    return (
-        <div className="flex items-start justify-between gap-4 pb-4 border-b last:border-b-0">
-            <div className="flex items-start gap-3 flex-1">
-                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-medium text-primary">
-                        {student
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                    </span>
-                </div>
-                <div className="space-y-1 flex-1">
-                    <p className="text-sm">
-                        <span className="font-medium">{student}</span>{" "}
-                        <span className="text-muted-foreground">{action}</span>{" "}
-                        <span className="font-medium">{skill}</span>
-                    </p>
-                    <div className="flex items-center gap-2">
-                        <p className="text-xs text-muted-foreground">{time}</p>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                            {impact}
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    )
-}
-
 export default function CompanyDashboardPage() {
     const [companyDetails, setCompanyDetails] = useState<ICompanyDetails | null>(null)
+    const [applicants, setApplicants] = useState<IApplicant[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [stats, setStats] = useState<{ total: number; pending: number; reviewing: number; interview: number; accepted: number; rejected: number } | null>(null)
 
     useEffect(() => {
-        const fetchCompanyDetails = async () => {
+        const fetchData = async () => {
             try {
-                const response = await getCompanyDetails()
-                setCompanyDetails(response.data)
+                const [companyRes, applicantsRes, statsRes] = await Promise.all([
+                    getCompanyDetails(),
+                    getAllApplicantsWithScores(),
+                    getApplicationStats()
+                ])
+                setCompanyDetails(companyRes.data)
+                setApplicants(applicantsRes.applicants)
+                setStats(statsRes.stats)
             } catch (err) {
-                console.error('Failed to fetch company details:', err)
+                console.error('Failed to fetch data:', err)
                 setError('Failed to load company information')
             } finally {
                 setLoading(false)
             }
         }
 
-        fetchCompanyDetails()
+        fetchData()
     }, [])
 
     if (loading) {
@@ -273,184 +223,68 @@ export default function CompanyDashboardPage() {
                 {/* Key Metrics */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <StatCard
-                        title="Total Students"
-                        value="48"
-                        description="15 new this month"
+                        title="Total Applicants"
+                        value={stats?.total.toString() || "0"}
+                        description={`${stats?.pending || 0} pending review`}
                         icon={Users}
-                        trend="+45%"
-                        trendUp={true}
                     />
                     <StatCard
                         title="Avg. Potential Score"
-                        value="78%"
-                        description="up from 72% last month"
+                        value={applicants.length > 0 ? Math.round(applicants.reduce((sum, a) => sum + a.potential, 0) / applicants.length) + "%" : "0%"}
+                        description="Based on Careero matching"
                         icon={TrendingUp}
-                        trend="+6%"
-                        trendUp={true}
                     />
                     <StatCard
                         title="High Engagement"
-                        value="32"
-                        description="portfolio updates this week"
+                        value={applicants.filter(a => a.engagement === "High").length.toString()}
+                        description="Highly engaged students"
                         icon={Activity}
-                        trend="+12%"
-                        trendUp={true}
                     />
                     <StatCard
                         title="Ready to Hire"
-                        value="8"
-                        description="after skill assessments"
+                        value={applicants.filter(a => a.careero.isEligible).length.toString()}
+                        description="Eligible candidates"
                         icon={Award}
-                        trend="+3"
-                        trendUp={true}
                     />
                 </div>
 
-                {/* Main Content Grid */}
-                <div className="grid gap-6 lg:grid-cols-3">
+                {/* Main Content */}
+                <div className="space-y-4">
                     {/* Top Students by Potential */}
-                    <div className="lg:col-span-2 space-y-4">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Star className="h-4 w-4" />
-                                    Top Students by Potential
-                                </CardTitle>
-                                <CardDescription>Based on recent activities and skill assessments</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-2">
-                                <StudentPotentialCard
-                                    name="Alex Rodriguez"
-                                    skill="Full-Stack Development"
-                                    potential={94}
-                                    activities={18}
-                                    engagement="High"
-                                />
-                                <StudentPotentialCard
-                                    name="Sarah Chen"
-                                    skill="Data Science & ML"
-                                    potential={91}
-                                    activities={15}
-                                    engagement="High"
-                                />
-                                <StudentPotentialCard
-                                    name="Marcus Johnson"
-                                    skill="Cloud Infrastructure"
-                                    potential={87}
-                                    activities={12}
-                                    engagement="High"
-                                />
-                                <StudentPotentialCard
-                                    name="Emily Davis"
-                                    skill="UX/UI Design"
-                                    potential={82}
-                                    activities={10}
-                                    engagement="Medium"
-                                />
-                                <StudentPotentialCard
-                                    name="James Wilson"
-                                    skill="DevOps Engineering"
-                                    potential={79}
-                                    activities={8}
-                                    engagement="Medium"
-                                />
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Quick Actions */}
-                    <div className="space-y-4">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-base">Quick Actions</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <QuickAction title="Applicants" icon={Users} href="/dashboard/company/applicants" />
-                                    <QuickAction title="Team & Roles" icon={BarChart3} href="/dashboard/company/team" />
-                                    <QuickAction title="Accumulations" icon={MessageSquare} href="/dashboard/company/accumulations" />
-                                    <QuickAction title="Profile" icon={Target} href="/dashboard/company/profile" />
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Next Actions */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-base">Next Steps</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                                <div className="flex items-start gap-3 pb-3 border-b last:border-b-0 last:pb-0">
-                                    <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                                    <div className="space-y-1">
-                                        <p className="text-sm font-medium">Review 3 pending portfolios</p>
-                                        <p className="text-xs text-muted-foreground">Due today</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-3 pb-3 border-b last:border-b-0 last:pb-0">
-                                    <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                                    <div className="space-y-1">
-                                        <p className="text-sm font-medium">Schedule interviews</p>
-                                        <p className="text-xs text-muted-foreground">5 students available</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                                    <div className="space-y-1">
-                                        <p className="text-sm font-medium">Update skill requirements</p>
-                                        <p className="text-xs text-muted-foreground">For Q2 openings</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Star className="h-4 w-4" />
+                                Top Students by Potential
+                            </CardTitle>
+                            <CardDescription>Ranked by Careero match score (highest to lowest)</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            {applicants.length === 0 ? (
+                                <p className="text-center text-muted-foreground py-8">
+                                    No applicants yet. Students will appear here once they apply to your roles.
+                                </p>
+                            ) : (
+                                applicants.map((applicant) => (
+                                    <StudentPotentialCard key={applicant.student._id} applicant={applicant} />
+                                ))
+                            )}
+                        </CardContent>
+                    </Card>
                 </div>
 
-                {/* Recent Activity Feed */}
+                {/* Quick Actions */}
                 <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Activity className="h-4 w-4" />
-                            Recent Student Activity
-                        </CardTitle>
-                        <CardDescription>Latest updates from your connected students</CardDescription>
+                        <CardTitle className="text-base">Quick Actions</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <ActivityFeedItem
-                            student="Alex Rodriguez"
-                            action="completed project"
-                            skill="E-Commerce Platform"
-                            time="30 minutes ago"
-                            impact="Strong Portfolio"
-                        />
-                        <ActivityFeedItem
-                            student="Sarah Chen"
-                            action="completed certification"
-                            skill="TensorFlow & Deep Learning"
-                            time="2 hours ago"
-                            impact="Skill Verified"
-                        />
-                        <ActivityFeedItem
-                            student="Marcus Johnson"
-                            action="updated profile"
-                            skill="AWS Solutions Architect"
-                            time="5 hours ago"
-                            impact="Profile Improved"
-                        />
-                        <ActivityFeedItem
-                            student="Emily Davis"
-                            action="participated in"
-                            skill="Design System Workshop"
-                            time="1 day ago"
-                            impact="Knowledge Gained"
-                        />
-                        <ActivityFeedItem
-                            student="James Wilson"
-                            action="earned badge"
-                            skill="DevOps Best Practices"
-                            time="2 days ago"
-                            impact="Certified"
-                        />
+                    <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <QuickAction title="Applicants" icon={Users} href="/dashboard/company/applicants" />
+                            <QuickAction title="Team & Roles" icon={BarChart3} href="/dashboard/company/team" />
+                            <QuickAction title="Accumulations" icon={Target} href="/dashboard/company/accumulations" />
+                            <QuickAction title="Profile" icon={Target} href="/dashboard/company/profile" />
+                        </div>
                     </CardContent>
                 </Card>
             </div>

@@ -30,13 +30,13 @@ import {
   type AgendaItem,
   type Task,
 } from "@/lib/accumulationsApi"
-import { 
-  Plus, 
-  Calendar, 
-  Target, 
-  Users, 
-  FileText, 
-  Tag, 
+import {
+  Plus,
+  Calendar,
+  Target,
+  Users,
+  FileText,
+  Tag,
   Link as LinkIcon,
   CheckCircle,
   Trash2,
@@ -64,14 +64,9 @@ const popularSkills = [
 ]
 
 const popularCourses = [
-  'Computer Science',
-  'Information Technology',
-  'Software Engineering',
-  'Data Science',
-  'Business Administration',
-  'Marketing',
-  'Finance',
-  'Human Resources'
+  { label: 'Information Technology', value: 'BSIT' },
+  { label: 'Computer Science', value: 'BSCS' },
+  { label: 'Business Administration', value: 'BSBA' },
 ]
 
 export default function CompanyAccumulationForm({
@@ -378,8 +373,8 @@ export default function CompanyAccumulationForm({
                   </SelectTrigger>
                   <SelectContent>
                     {popularCourses.map((course) => (
-                      <SelectItem key={course} value={course}>
-                        {course}
+                      <SelectItem key={course.value} value={course.value}>
+                        {course.label}
                       </SelectItem>
                     ))}
                   </SelectContent>

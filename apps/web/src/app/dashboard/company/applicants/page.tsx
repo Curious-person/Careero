@@ -1,11 +1,12 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import DashboardLayout from "@/components/layouts/DashboardLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
     Users,
     Search,
@@ -14,12 +15,9 @@ import {
     Clock,
     XCircle,
     Calendar,
-    Mail,
     FileText,
-    Briefcase,
     GraduationCap,
     MapPin,
-    Star,
     MoreVertical,
     ChevronLeft,
     ChevronRight,
@@ -27,141 +25,40 @@ import {
     Phone,
     UserCheck,
     Loader2,
-    Send
+    Send,
+    Save,
+    Mail
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { scheduleInterview, checkInterviewActive, type Interview, type MeetingType } from "@/lib/interviewsApi"
+import {
+    getCompanyApplicants,
+    getApplicationStats,
+    saveApplicationNotes,
+    updateApplicationStatus,
+    type Applicant as ApiApplicant,
+    type ApplicationStatus
+} from "@/lib/applicationsApi"
+import { mockApi, mockApplicants } from "@/lib/mockApplicantsData"
 
 interface Applicant {
     id: string
+    applicationId: string
     name: string
     email: string
     school: string
     major: string
     appliedRole: string
+    roleId: string
     department: string
-    status: "pending" | "reviewing" | "interview" | "accepted" | "rejected"
+    status: ApplicationStatus
     appliedDate: string
-    avatar?: string
     skills: string[]
     location: string
     gpa?: string
+    notes?: string
+    yearLevel?: string
 }
-
-const mockApplicants: Applicant[] = [
-    {
-        id: "1",
-        name: "Sarah Johnson",
-        email: "sarah.j@edu.com",
-        school: "University of the Philippines",
-        major: "Computer Science",
-        appliedRole: "Software Engineer Intern",
-        department: "Engineering",
-        status: "pending",
-        appliedDate: "2026-03-18",
-        skills: ["React", "TypeScript", "Node.js"],
-        location: "Manila, Philippines",
-        gpa: "3.8",
-    },
-    {
-        id: "2",
-        name: "Michael Chen",
-        email: "m.chen@edu.com",
-        school: "Ateneo de Manila University",
-        major: "Software Engineering",
-        appliedRole: "Software Engineer Intern",
-        department: "Engineering",
-        status: "reviewing",
-        appliedDate: "2026-03-17",
-        skills: ["Python", "Machine Learning", "TensorFlow"],
-        location: "Quezon City, Philippines",
-        gpa: "3.9",
-    },
-    {
-        id: "3",
-        name: "Emma Davis",
-        email: "emma.d@edu.com",
-        school: "De La Salle University",
-        major: "Computer Science",
-        appliedRole: "Product Manager",
-        department: "Product",
-        status: "interview",
-        appliedDate: "2026-03-15",
-        skills: ["Product Strategy", "Agile", "User Research"],
-        location: "Manila, Philippines",
-        gpa: "3.7",
-    },
-    {
-        id: "4",
-        name: "James Wilson",
-        email: "j.wilson@edu.com",
-        school: "University of Santo Tomas",
-        major: "Business Administration",
-        appliedRole: "Product Manager",
-        department: "Product",
-        status: "pending",
-        appliedDate: "2026-03-16",
-        skills: ["Business Analysis", "Strategy", "Finance"],
-        location: "Manila, Philippines",
-        gpa: "3.6",
-    },
-    {
-        id: "5",
-        name: "Lisa Anderson",
-        email: "l.anderson@edu.com",
-        school: "University of the Philippines",
-        major: "Statistics",
-        appliedRole: "Data Analyst",
-        department: "Analytics",
-        status: "accepted",
-        appliedDate: "2026-03-10",
-        skills: ["SQL", "Python", "Data Visualization"],
-        location: "Quezon City, Philippines",
-        gpa: "3.9",
-    },
-    {
-        id: "6",
-        name: "David Kim",
-        email: "d.kim@edu.com",
-        school: "De La Salle University",
-        major: "Data Science",
-        appliedRole: "Data Analyst",
-        department: "Analytics",
-        status: "rejected",
-        appliedDate: "2026-03-12",
-        skills: ["R", "Statistics", "Machine Learning"],
-        location: "Manila, Philippines",
-        gpa: "3.5",
-    },
-    {
-        id: "7",
-        name: "Emily Rodriguez",
-        email: "e.rodriguez@edu.com",
-        school: "Ateneo de Manila University",
-        major: "Interaction Design",
-        appliedRole: "UX Designer Intern",
-        department: "Design",
-        status: "pending",
-        appliedDate: "2026-03-19",
-        skills: ["Figma", "User Research", "Prototyping"],
-        location: "Quezon City, Philippines",
-        gpa: "3.8",
-    },
-    {
-        id: "8",
-        name: "Alex Thompson",
-        email: "a.thompson@edu.com",
-        school: "University of Santo Tomas",
-        major: "UX Design",
-        appliedRole: "UX Designer Intern",
-        department: "Design",
-        status: "reviewing",
-        appliedDate: "2026-03-18",
-        skills: ["Adobe XD", "Sketch", "Wireframing"],
-        location: "Manila, Philippines",
-        gpa: "3.7",
-    },
-]
 
 const getStatusColor = (status: string) => {
     switch (status) {
@@ -203,10 +100,80 @@ export default function ApplicantsPage() {
     const [selectedApplicant, setSelectedApplicant] = useState<Applicant | null>(null)
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
     const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false)
+    const [isApproveRejectModalOpen, setIsApproveRejectModalOpen] = useState(false)
+    const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null)
     const [currentPage, setCurrentPage] = useState(1)
     const itemsPerPage = 5
 
-    const filteredApplicants = mockApplicants.filter(
+    // Set to true to use mock data instead of API
+    const USE_MOCK_DATA = true
+
+    // API state
+    const [apiApplicants, setApiApplicants] = useState<ApiApplicant[]>(USE_MOCK_DATA ? mockApplicants : [])
+    const [stats, setStats] = useState({ total: 0, pending: 0, reviewing: 0, interview: 0, accepted: 0, rejected: 0 })
+    const [loading, setLoading] = useState(true)
+
+    // Fetch data from API or mock data
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                setLoading(true)
+                if (USE_MOCK_DATA) {
+                    // Use mock data
+                    const applicantsResponse = await mockApi.getApplicants()
+                    setApiApplicants(applicantsResponse.applicants)
+                    setStats(applicantsResponse.stats)
+                } else {
+                    // Use real API
+                    const [applicantsResponse, statsResponse] = await Promise.all([
+                        getCompanyApplicants(),
+                        getApplicationStats(),
+                    ])
+                    setApiApplicants(applicantsResponse.applicants)
+                    setStats(applicantsResponse.stats || statsResponse.stats)
+                }
+            } catch (error) {
+                console.error('Failed to fetch data:', error)
+                // Fallback to mock data on error
+                const mockResponse = await mockApi.getApplicants()
+                setApiApplicants(mockResponse.applicants)
+                setStats(mockResponse.stats)
+            } finally {
+                setLoading(false)
+            }
+        }
+        fetchData()
+    }, [])
+
+    // Convert API applicants to Applicant format
+    const convertToApplicants = (apiApplicants: ApiApplicant[]): Applicant[] => {
+        return apiApplicants.flatMap(app => {
+            return app.applications.map(appApp => ({
+                id: app._id,
+                applicationId: appApp._id,
+                name: app.basicInfo?.firstName
+                    ? `${app.basicInfo.firstName} ${app.basicInfo.lastName}`
+                    : app.email.split('@')[0],
+                email: app.email,
+                school: app.basicInfo?.course || 'N/A',
+                major: app.basicInfo?.course || 'N/A',
+                appliedRole: appApp.role.title,
+                roleId: appApp.role._id,
+                department: appApp.role.department,
+                status: appApp.status,
+                appliedDate: new Date(appApp.appliedDate).toISOString().split('T')[0],
+                skills: app.skillTags?.slice(0, 5).map(s => s.tag) || [],
+                location: 'Philippines',
+                gpa: undefined,
+                notes: appApp.notes,
+                yearLevel: app.basicInfo?.yearLevel,
+            }))
+        })
+    }
+
+    const applicants = convertToApplicants(apiApplicants)
+
+    const filteredApplicants = applicants.filter(
         (applicant) => {
             const matchesSearch =
                 applicant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -224,15 +191,6 @@ export default function ApplicantsPage() {
         currentPage * itemsPerPage
     )
 
-    const stats = {
-        total: mockApplicants.length,
-        pending: mockApplicants.filter((a) => a.status === "pending").length,
-        reviewing: mockApplicants.filter((a) => a.status === "reviewing").length,
-        interview: mockApplicants.filter((a) => a.status === "interview").length,
-        accepted: mockApplicants.filter((a) => a.status === "accepted").length,
-        rejected: mockApplicants.filter((a) => a.status === "rejected").length,
-    }
-
     const handleReview = (applicant: Applicant) => {
         setSelectedApplicant(applicant)
         setIsReviewModalOpen(true)
@@ -243,20 +201,48 @@ export default function ApplicantsPage() {
         setIsAppointmentModalOpen(true)
     }
 
-    const handleInterviewScheduled = (interview: Interview) => {
-        // Update the applicant's status to interview
-        // In production, this would refresh from API
-        console.log("Interview scheduled:", interview)
+    const handleApprove = (applicant: Applicant) => {
+        setSelectedApplicant(applicant)
+        setActionType('approve')
+        setIsApproveRejectModalOpen(true)
     }
 
-    const handleReject = (applicantId: string) => {
-        console.log("Rejecting applicant:", applicantId)
-        setIsReviewModalOpen(false)
+    const handleReject = (applicant: Applicant) => {
+        setSelectedApplicant(applicant)
+        setActionType('reject')
+        setIsApproveRejectModalOpen(true)
     }
 
-    const handleAccept = (applicantId: string) => {
-        console.log("Accepting applicant:", applicantId)
-        setIsReviewModalOpen(false)
+    const handleActionCompleted = (action: 'approved' | 'rejected' | 'interview') => {
+        console.log(`Action completed: ${action}`)
+        // Refresh data
+        const refreshData = async () => {
+            const applicantsResponse = USE_MOCK_DATA
+                ? await mockApi.getApplicants()
+                : await getCompanyApplicants()
+            setApiApplicants(applicantsResponse.applicants)
+            setStats(applicantsResponse.stats)
+        }
+        refreshData()
+    }
+
+    const handleSaveNotes = async (applicationId: string, notes: string) => {
+        try {
+            if (USE_MOCK_DATA) {
+                await mockApi.saveNotes(applicationId, notes)
+                const applicantsResponse = await mockApi.getApplicants()
+                setApiApplicants(applicantsResponse.applicants)
+                setStats(applicantsResponse.stats)
+            } else {
+                await saveApplicationNotes(applicationId, notes)
+                // Refresh applicants to get updated notes
+                const applicantsResponse = await getCompanyApplicants()
+                setApiApplicants(applicantsResponse.applicants)
+                setStats(applicantsResponse.stats)
+            }
+        } catch (error) {
+            console.error('Failed to save notes:', error)
+        }
     }
 
     return (
@@ -381,7 +367,8 @@ export default function ApplicantsPage() {
                                             key={applicant.id}
                                             applicant={applicant}
                                             onReview={() => handleReview(applicant)}
-                                            onSchedule={() => handleScheduleAppointment(applicant)}
+                                            onApprove={() => handleApprove(applicant)}
+                                            onReject={() => handleReject(applicant)}
                                         />
                                     ))}
                                 </tbody>
@@ -439,12 +426,12 @@ export default function ApplicantsPage() {
             {isReviewModalOpen && selectedApplicant && (
                 <ReviewModal
                     applicant={selectedApplicant}
+                    applicationId={selectedApplicant.applicationId}
                     onClose={() => {
                         setIsReviewModalOpen(false)
                         setSelectedApplicant(null)
                     }}
-                    onReject={() => handleReject(selectedApplicant.id)}
-                    onAccept={() => handleAccept(selectedApplicant.id)}
+                    onSaveNotes={handleSaveNotes}
                 />
             )}
 
@@ -456,7 +443,24 @@ export default function ApplicantsPage() {
                         setIsAppointmentModalOpen(false)
                         setSelectedApplicant(null)
                     }}
-                    onInterviewScheduled={handleInterviewScheduled}
+                    onInterviewScheduled={(interview) => handleActionCompleted('interview')}
+                    useMockData={USE_MOCK_DATA}
+                />
+            )}
+
+            {/* Approve/Reject Modal */}
+            {isApproveRejectModalOpen && selectedApplicant && actionType && (
+                <ApproveRejectModal
+                    applicant={selectedApplicant}
+                    actionType={actionType}
+                    applicationId={selectedApplicant.applicationId}
+                    onClose={() => {
+                        setIsApproveRejectModalOpen(false)
+                        setSelectedApplicant(null)
+                        setActionType(null)
+                    }}
+                    onActionCompleted={handleActionCompleted}
+                    useMockData={USE_MOCK_DATA}
                 />
             )}
         </DashboardLayout>
@@ -492,11 +496,13 @@ function StatCard({
 function ApplicantRow({
     applicant,
     onReview,
-    onSchedule,
+    onApprove,
+    onReject,
 }: {
     applicant: Applicant
     onReview: () => void
-    onSchedule: () => void
+    onApprove: () => void
+    onReject: () => void
 }) {
     const StatusIcon = getStatusIcon(applicant.status)
 
@@ -524,7 +530,10 @@ function ApplicantRow({
             <td className="py-4 px-4">
                 <div className="space-y-1">
                     <p className="text-sm text-gray-700">{applicant.school}</p>
-                    <p className="text-xs text-muted-foreground">{applicant.major}</p>
+                    <p className="text-xs text-muted-foreground">
+                        {applicant.major}
+                        {applicant.yearLevel && ` • Year ${applicant.yearLevel}`}
+                    </p>
                 </div>
             </td>
             <td className="py-4 px-4">
@@ -571,15 +580,21 @@ function ApplicantRow({
                     <Button
                         variant="outline"
                         size="sm"
-                        className="h-8 text-xs"
-                        onClick={onSchedule}
+                        className="h-8 text-xs bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-green-200"
+                        onClick={onApprove}
                     >
-                        <Calendar className="h-3 w-3 mr-1" />
-                        Schedule
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Approve
                     </Button>
-                    <button className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors">
-                        <MoreVertical className="h-4 w-4 text-muted-foreground" />
-                    </button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 border-red-200"
+                        onClick={onReject}
+                    >
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Reject
+                    </Button>
                 </div>
             </td>
         </tr>
@@ -588,15 +603,25 @@ function ApplicantRow({
 
 function ReviewModal({
     applicant,
+    applicationId,
     onClose,
-    onReject,
-    onAccept,
+    onSaveNotes,
 }: {
     applicant: Applicant
+    applicationId: string
     onClose: () => void
-    onReject: () => void
-    onAccept: () => void
+    onSaveNotes: (id: string, notes: string) => void
 }) {
+    const [notes, setNotes] = useState(applicant.notes || "")
+    const [isSaving, setIsSaving] = useState(false)
+
+    const handleSave = async () => {
+        setIsSaving(true)
+        await onSaveNotes(applicationId, notes)
+        setIsSaving(false)
+        onClose()
+    }
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div
@@ -653,8 +678,11 @@ function ReviewModal({
                                 <CardTitle className="text-sm">Education</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-1">
-                                <p className="text-base font-semibold">{applicant.major}</p>
-                                <p className="text-sm text-muted-foreground">GPA: {applicant.gpa}</p>
+                                <p className="text-base font-semibold">{applicant.school}</p>
+                                <p className="text-sm text-muted-foreground">
+                                    {applicant.major}
+                                    {applicant.yearLevel && ` - Year ${applicant.yearLevel}`}
+                                </p>
                             </CardContent>
                         </Card>
                     </div>
@@ -663,14 +691,18 @@ function ReviewModal({
                     <div>
                         <Label>Skills</Label>
                         <div className="flex flex-wrap gap-2 mt-2">
-                            {applicant.skills.map((skill) => (
-                                <span
-                                    key={skill}
-                                    className="text-sm px-3 py-1 rounded-full bg-brand-blue/10 text-brand-blue"
-                                >
-                                    {skill}
-                                </span>
-                            ))}
+                            {applicant.skills.length > 0 ? (
+                                applicant.skills.map((skill) => (
+                                    <span
+                                        key={skill}
+                                        className="text-sm px-3 py-1 rounded-full bg-brand-blue/10 text-brand-blue"
+                                    >
+                                        {skill}
+                                    </span>
+                                ))
+                            ) : (
+                                <p className="text-sm text-muted-foreground">No skills listed</p>
+                            )}
                         </div>
                     </div>
 
@@ -693,28 +725,31 @@ function ReviewModal({
                     {/* Notes */}
                     <div>
                         <Label htmlFor="notes">Review Notes</Label>
-                        <textarea
+                        <Textarea
                             id="notes"
-                            rows={4}
-                            className="w-full mt-2 px-3 py-2 rounded-md border border-input bg-background text-sm resize-none"
+                            rows={6}
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            className="w-full mt-2 resize-none"
                             placeholder="Add your review notes here..."
                         />
+                        <p className="text-xs text-muted-foreground mt-1">
+                            {notes.length}/2000 characters
+                        </p>
                     </div>
                 </div>
                 <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 flex items-center justify-between">
-                    <Button variant="outline" onClick={onReject} className="gap-2 text-red-600 hover:text-red-700">
-                        <XCircle className="h-4 w-4" />
-                        Reject Application
+                    <Button variant="outline" onClick={onClose}>
+                        Cancel
                     </Button>
-                    <div className="flex items-center gap-3">
-                        <Button variant="outline" onClick={onClose}>
-                            Cancel
-                        </Button>
-                        <Button onClick={onAccept} className="gap-2">
-                            <CheckCircle className="h-4 w-4" />
-                            Accept Application
-                        </Button>
-                    </div>
+                    <Button onClick={handleSave} disabled={isSaving} className="gap-2">
+                        {isSaving ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <Save className="h-4 w-4" />
+                        )}
+                        {isSaving ? 'Saving...' : 'Save Notes'}
+                    </Button>
                 </div>
             </div>
         </div>
@@ -725,10 +760,12 @@ function AppointmentModal({
     applicant,
     onClose,
     onInterviewScheduled,
+    useMockData,
 }: {
     applicant: Applicant
     onClose: () => void
     onInterviewScheduled: (interview: Interview) => void
+    useMockData: boolean
 }) {
     const [selectedDate, setSelectedDate] = useState("")
     const [selectedTime, setSelectedTime] = useState("")
@@ -765,7 +802,9 @@ function AppointmentModal({
         const checkActive = async () => {
             if (interviewId && invitationSent) {
                 try {
-                    const response = await checkInterviewActive(interviewId)
+                    const response = useMockData
+                        ? await mockApi.checkInterviewActive(interviewId)
+                        : await checkInterviewActive(interviewId)
                     setIsActive(response.isActive)
                     setIsToday(response.isToday)
                 } catch (error) {
@@ -780,7 +819,7 @@ function AppointmentModal({
         // Check every 30 seconds
         const interval = setInterval(checkActive, 30000)
         return () => clearInterval(interval)
-    }, [interviewId, invitationSent])
+    }, [interviewId, invitationSent, useMockData])
 
     const handleSchedule = async () => {
         if (!selectedDate || !selectedTime) return
@@ -789,23 +828,33 @@ function AppointmentModal({
         try {
             // In production, you would get the roleId from the selected role
             // For now, we'll use a placeholder - this should come from context or props
-            const roleId = "placeholder-role-id" // TODO: Get from context
+            const roleId = applicant.roleId || "placeholder-role-id" // TODO: Get from context
 
-            const response = await scheduleInterview({
-                applicantId: applicant.id,
-                roleId,
-                date: selectedDate,
-                time: selectedTime,
-                duration: 60,
-                meetingType,
-                notes: additionalMessage,
-            })
+            const response = useMockData
+                ? await mockApi.scheduleInterview({
+                    applicantId: applicant.id,
+                    roleId,
+                    date: selectedDate,
+                    time: selectedTime,
+                    duration: 60,
+                    meetingType,
+                    notes: additionalMessage,
+                })
+                : await scheduleInterview({
+                    applicantId: applicant.id,
+                    roleId,
+                    date: selectedDate,
+                    time: selectedTime,
+                    duration: 60,
+                    meetingType,
+                    notes: additionalMessage,
+                })
 
             setInvitationSent(true)
             setInterviewId(response.interview._id)
             setIsActive(false)
             setIsToday(new Date(response.interview.date).toDateString() === new Date().toDateString())
-            
+
             // Notify parent
             onInterviewScheduled(response.interview)
         } catch (error: any) {
@@ -1126,6 +1175,232 @@ function AppointmentModal({
                             </>
                         )}
                     </Button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function ApproveRejectModal({
+    applicant,
+    actionType,
+    applicationId,
+    onClose,
+    onActionCompleted,
+    useMockData,
+}: {
+    applicant: Applicant
+    actionType: 'approve' | 'reject'
+    applicationId: string
+    onClose: () => void
+    onActionCompleted: (action: 'approved' | 'rejected') => void
+    useMockData: boolean
+}) {
+    const [isConfirming, setIsConfirming] = useState(false)
+    const [isProcessing, setIsProcessing] = useState(false)
+    const [rejectReason, setRejectReason] = useState('')
+
+    const handleConfirm = async () => {
+        setIsProcessing(true)
+        try {
+            // Update status using mock API or real API
+            const newStatus: ApplicationStatus = actionType === 'approve' ? 'accepted' : 'rejected'
+
+            if (useMockData) {
+                await mockApi.updateStatus(applicationId, newStatus)
+            } else {
+                await updateApplicationStatus(applicationId, newStatus)
+            }
+
+            onActionCompleted(actionType === 'approve' ? 'approved' : 'rejected')
+            onClose()
+        } catch (error) {
+            console.error('Failed to update status:', error)
+            alert('Failed to update application status. Please try again.')
+        } finally {
+            setIsProcessing(false)
+        }
+    }
+
+    const handleInitialConfirm = () => {
+        if (actionType === 'reject' && !rejectReason.trim()) {
+            return // Don't proceed if reject reason is required but empty
+        }
+        setIsConfirming(true)
+    }
+
+    const isReject = actionType === 'reject'
+
+    // Confirmation step UI
+    if (isConfirming) {
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+                <div
+                    className="absolute inset-0 bg-black/50"
+                    onClick={onClose}
+                />
+                <div className="relative bg-white rounded-[20px] w-full max-w-md mx-4 overflow-hidden">
+                    <div className="p-6 space-y-6">
+                        {/* Icon based on action type */}
+                        <div className="flex justify-center">
+                            <div className={cn(
+                                "h-20 w-20 rounded-full flex items-center justify-center",
+                                isReject ? "bg-red-100" : "bg-green-100"
+                            )}>
+                                {isReject ? (
+                                    <XCircle className="h-10 w-10 text-red-600" />
+                                ) : (
+                                    <CheckCircle className="h-10 w-10 text-green-600" />
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Applicant Info */}
+                        <div className="text-center space-y-2">
+                            <h2 className="text-xl font-bold">
+                                {isReject ? "Reject Application?" : "Approve Application?"}
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                                {isReject
+                                    ? "This action cannot be undone. The applicant will be notified that their application was not successful."
+                                    : "The applicant will be notified of their acceptance and will receive next steps via email."}
+                            </p>
+                        </div>
+
+                        {/* Applicant Details */}
+                        <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <span className="text-sm font-medium text-primary">
+                                    {applicant.name.split(" ").map((n) => n[0]).join("")}
+                                </span>
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm font-medium">{applicant.name}</p>
+                                <p className="text-xs text-muted-foreground">{applicant.appliedRole}</p>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-3">
+                            <Button
+                                variant="outline"
+                                className="flex-1"
+                                onClick={onClose}
+                                disabled={isProcessing}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                className={cn(
+                                    "flex-1 gap-2",
+                                    isReject ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
+                                )}
+                                onClick={handleConfirm}
+                                disabled={isProcessing}
+                            >
+                                {isProcessing ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : isReject ? (
+                                    <XCircle className="h-4 w-4" />
+                                ) : (
+                                    <CheckCircle className="h-4 w-4" />
+                                )}
+                                {isProcessing ? 'Processing...' : isReject ? 'Reject' : 'Approve'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    // Initial step with reject reason input
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div
+                className="absolute inset-0 bg-black/50"
+                onClick={onClose}
+            />
+            <div className="relative bg-white rounded-[20px] w-full max-w-md mx-4 overflow-hidden">
+                <div className="p-6 space-y-6">
+                    {/* Icon based on action type */}
+                    <div className="flex justify-center">
+                        <div className={cn(
+                            "h-20 w-20 rounded-full flex items-center justify-center",
+                            isReject ? "bg-red-100" : "bg-green-100"
+                        )}>
+                            {isReject ? (
+                                <XCircle className="h-10 w-10 text-red-600" />
+                            ) : (
+                                <CheckCircle className="h-10 w-10 text-green-600" />
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Title */}
+                    <div className="text-center space-y-2">
+                        <h2 className="text-xl font-bold">
+                            {isReject ? "Reject Application" : "Approve Application"}
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                            {isReject
+                                ? "Please provide a reason for rejection (optional)"
+                                : "Confirm that you want to accept this applicant"}
+                        </p>
+                    </div>
+
+                    {/* Applicant Info */}
+                    <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <span className="text-sm font-medium text-primary">
+                                {applicant.name.split(" ").map((n) => n[0]).join("")}
+                            </span>
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-sm font-medium">{applicant.name}</p>
+                            <p className="text-xs text-muted-foreground">{applicant.appliedRole}</p>
+                        </div>
+                    </div>
+
+                    {/* Reject Reason (only for reject action) */}
+                    {isReject && (
+                        <div>
+                            <Label htmlFor="rejectReason">Rejection Reason (Optional)</Label>
+                            <Textarea
+                                id="rejectReason"
+                                rows={4}
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                className="w-full mt-2 resize-none"
+                                placeholder="E.g., Looking for candidates with more experience in..."
+                            />
+                        </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3">
+                        <Button
+                            variant="outline"
+                            className="flex-1"
+                            onClick={onClose}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            className={cn(
+                                "flex-1 gap-2",
+                                isReject ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
+                            )}
+                            onClick={handleInitialConfirm}
+                        >
+                            {isReject ? (
+                                <XCircle className="h-4 w-4" />
+                            ) : (
+                                <CheckCircle className="h-4 w-4" />
+                            )}
+                            Continue
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>

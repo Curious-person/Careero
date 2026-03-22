@@ -23,6 +23,19 @@ export interface Role {
   salaryRange?: string;
   createdAt: string;
   updatedAt: string;
+  appliedStudents?: Array<{
+    _id: string;
+    email: string;
+    name: string;
+    basicInfo?: {
+      firstName?: string;
+      lastName?: string;
+      course?: string;
+      yearLevel?: string;
+    };
+    skillTags?: { tag: string; confidence: number }[];
+    totalPoints?: number;
+  }>;
 }
 
 export interface RoleStats {
@@ -52,6 +65,11 @@ export interface RolesResponse {
   count: number;
 }
 
+export interface RolesWithApplicantsResponse {
+  roles: Role[];
+  count: number;
+}
+
 export interface RoleResponse {
   role: Role;
 }
@@ -65,8 +83,14 @@ export const getRoles = async (search?: string, status?: string): Promise<RolesR
   const params = new URLSearchParams();
   if (search) params.append('search', search);
   if (status) params.append('status', status);
-  
+
   const response = await apiClient.get<RolesResponse>(`/roles?${params.toString()}`);
+  return response.data;
+};
+
+// Get all company roles with applied students populated
+export const getCompanyRolesWithApplicants = async (): Promise<RolesWithApplicantsResponse> => {
+  const response = await apiClient.get<RolesWithApplicantsResponse>('/roles/company/applicants');
   return response.data;
 };
 

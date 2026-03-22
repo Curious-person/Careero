@@ -44,4 +44,5 @@ router.post('/verify-otp', rateLimiter_1.otpLimiter, validate_middleware_1.valid
 router.post('/register', validate_middleware_1.validateEmail, validate_middleware_1.validatePassword, authController.register);
 router.post('/login', rateLimiter_1.loginLimiter, validate_middleware_1.validateEmail, authController.login);
 router.post('/logout', authController.logout);
+router.get('/me', authController.getMe);
 exports.default = router;

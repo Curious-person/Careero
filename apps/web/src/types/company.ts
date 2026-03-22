@@ -52,3 +52,74 @@ export interface ICompanyProfileInput {
   address?: string;
   targetStudents?: ITargetStudentInput[];
 }
+
+// ===========================
+// APPLICANT TYPES
+// ===========================
+
+export interface ICareeroBreakdown {
+  skillMatch: number;
+  pointsMatch: number;
+  eventsMatch: number;
+  readinessMatch: number;
+}
+
+export interface ICareeroResult {
+  isEligible: boolean;
+  matchScore: number;
+  breakdown: ICareeroBreakdown;
+  missingRequirements: string[];
+}
+
+export interface IApplicantStudent {
+  _id: string;
+  email: string;
+  name: string;
+  basicInfo?: {
+    studentId?: string;
+    firstName?: string;
+    lastName?: string;
+    middleName?: string;
+    section?: string;
+    course: string;
+    yearLevel: string;
+    term: string;
+  };
+  skillTags?: { tag: string; confidence: number }[];
+  totalPoints?: number;
+  primarySkill: string;
+}
+
+export interface IApplicantRole {
+  _id: string;
+  title: string;
+  department: string;
+}
+
+export interface IApplicant {
+  applicationId?: string;
+  _id?: string;
+  student: IApplicantStudent;
+  role: IApplicantRole;
+  status: 'pending' | 'reviewing' | 'interview' | 'accepted' | 'rejected';
+  notes?: string;
+  appliedDate: string;
+  careero: ICareeroResult;
+  potential: number;
+  engagement: 'Low' | 'Medium' | 'High';
+  activities: number;
+}
+
+export interface IApplicantsResponse {
+  applicants: IApplicant[];
+  count: number;
+}
+
+export interface IApplicantStats {
+  total: number;
+  pending: number;
+  reviewing: number;
+  interview: number;
+  accepted: number;
+  rejected: number;
+}

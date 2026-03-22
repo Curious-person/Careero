@@ -6,6 +6,7 @@ import accumulationRoute from './accumulation.route';
 import roleRoute from './role.route';
 import companyProfileRoute from './companyProfile.route';
 import interviewRoute from './interview.route';
+import applicationRoute from './application.route';
 
 const router = express.Router();
 
@@ -37,6 +38,14 @@ const defaultRoutes = [
   {
     path: '/interviews',
     route: interviewRoute,
+  },
+  {
+    path: '/applicants',
+    route: applicationRoute,
+  },
+  {
+    path: '/applications',
+    route: applicationRoute,
   },
 ];
 

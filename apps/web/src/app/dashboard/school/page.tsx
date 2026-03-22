@@ -9,6 +9,7 @@ import type { Student } from "./_data/school-data"
 import { COMPANIES, COURSES, PENDING_STUDENTS } from "./_data/school-data"
 import AccumulationsPage, { type Accum } from "./accumulations/AccumulationsPage"
 import CompanyPage from "./company/CompanyPage"
+import type { CompanyProfile } from "@/lib/companyProfilesApi"
 import StudentsPage from "./students/StudentsPage"
 import { apiClient } from "@/lib/apiClient"
 
@@ -18,7 +19,7 @@ export default function SchoolPage() {
   const [view, setView] = useState<View>("dashboard")
   const [selectedCourse, setSelectedCourse] = useState<typeof COURSES[0] | null>(null)
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
-  const [selectedCompany, setSelectedCompany] = useState<typeof COMPANIES[0] | null>(null)
+  const [selectedCompany, setSelectedCompany] = useState<CompanyProfile | null>(null)
   const [selectedAccum, setSelectedAccum] = useState<Accum | null>(null)
   const [selectedPerson, setSelectedPerson] = useState<{ name: string; role: string; email: string } | null>(null)
   const [accums, setAccums] = useState<Accum[]>([])
@@ -58,7 +59,6 @@ export default function SchoolPage() {
         <CompanyPage
           selectedCompany={selectedCompany}
           onSelectCompany={setSelectedCompany}
-          onSelectStudent={(student: Student, course: typeof COURSES[0]) => { setSelectedCourse(course); setSelectedStudent(student); setSelectedCompany(null); setView("students") }}
           onBack={() => setSelectedCompany(null)}
         />
       )}

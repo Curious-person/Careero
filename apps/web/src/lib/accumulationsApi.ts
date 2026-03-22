@@ -1,8 +1,8 @@
 import { apiClient } from './apiClient';
 
 export type AccumSource = 'school' | 'company';
-export type AccumStatus = 'Active' | 'Closing Soon' | 'Ended';
-export type AccumType = 'Task' | 'Course' | 'Event';
+export type AccumStatus = 'Active' | 'Cancelled' | 'Completed';
+export type AccumType = 'Task' | 'Challenge' | 'Course' | 'Event';
 
 // Type-specific sub-document types
 export interface Module {
@@ -154,7 +154,12 @@ export const createSchoolAccumulation = async (data: CreateAccumulationInput): P
  * Accessible by: school only
  */
 export const endSchoolAccumulation = async (id: string): Promise<AccumulationResponse> => {
-  const response = await apiClient.patch<AccumulationResponse>(`/accumulations/school/${id}/end`);
+  const response = await apiClient.patch<AccumulationResponse>(`/accumulations/school/${id}/complete`);
+  return response.data;
+};
+
+export const cancelSchoolAccumulation = async (id: string): Promise<AccumulationResponse> => {
+  const response = await apiClient.patch<AccumulationResponse>(`/accumulations/school/${id}/cancel`);
   return response.data;
 };
 
@@ -219,7 +224,12 @@ export const createCompanyAccumulation = async (data: CreateAccumulationInput): 
  * Accessible by: company only
  */
 export const endCompanyAccumulation = async (id: string): Promise<AccumulationResponse> => {
-  const response = await apiClient.patch<AccumulationResponse>(`/accumulations/company/${id}/end`);
+  const response = await apiClient.patch<AccumulationResponse>(`/accumulations/company/${id}/complete`);
+  return response.data;
+};
+
+export const cancelCompanyAccumulation = async (id: string): Promise<AccumulationResponse> => {
+  const response = await apiClient.patch<AccumulationResponse>(`/accumulations/company/${id}/cancel`);
   return response.data;
 };
 

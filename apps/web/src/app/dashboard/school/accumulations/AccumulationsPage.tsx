@@ -2,12 +2,12 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { apiClient } from "@/lib/apiClient"
 import { BookOpen, Building2, CalendarDays, CheckCircle, ChevronLeft, ClipboardList, Clock, GraduationCap, Layers, Link, Mail, Phone, Plus, School, Star, TrendingUp, Trophy, Users, X } from "lucide-react"
 import { useState } from "react"
 import { PerformanceBar, StatCard, StatusBadge } from "../_components/shared"
 import type { AccumSource, Student } from "../_data/school-data"
 import { COURSES } from "../_data/school-data"
-import { apiClient } from "@/lib/apiClient"
 
 type SkillRatings = Record<string, number> // key: skillTag, value: 1-5
 type ParticipantGrade = { grade: string; skillRatings: SkillRatings; feedback: string }
@@ -39,12 +39,24 @@ const typeIcon = (type: string) =>
   type === "Challenge" ? Trophy : type === "Course" ? BookOpen : type === "Event" ? CalendarDays : CheckCircle
 
 const statusColor = (s: string) =>
-  s === "Active" ? "bg-green-100 text-green-700" : s === "Closing Soon" ? "bg-yellow-100 text-yellow-700" : "bg-muted text-muted-foreground"
+  s === "Active" ? "bg-green-100 text-green-700" : s === "Cancelled" ? "bg-red-100 text-red-700" : s === "Completed" ? "bg-gray-100 text-gray-700" : "bg-muted text-muted-foreground"
 
 const typeColor = (t: string) =>
   t === "Challenge" ? "bg-orange-100 text-orange-700" : t === "Course" ? "bg-blue-100 text-blue-700" : t === "Event" ? "bg-purple-100 text-purple-700" : "bg-muted text-muted-foreground"
 
-const ACCUM_TYPES = ["Challenge", "Course", "Task", "Event"]
+const ACCUM_TYPES = ["Challenge", "Course", "Test", "Event"]
+
+const TYPE_MULTIPLIER: Record<string, number> = {
+  Event: 2.0, Course: 1.6, Challenge: 1.3, Test: 1.0,
+}
+
+function calculateAccumPoints(skillTags: string[], type: string): number {
+  const BASE = 10
+  const count = skillTags.length
+  if (count === 0) return Math.round(BASE * (TYPE_MULTIPLIER[type] ?? 1.0))
+  const complexity = 1.0 + 0.1 * (count - 1)
+  return Math.round(BASE * count * complexity * (TYPE_MULTIPLIER[type] ?? 1.0))
+}
 const ACCUM_COURSES = ["BSIT", "BSCS", "BSBA"]
 const ACCUM_FIELDS = ["Web Development", "Cybersecurity", "Cloud Computing", "Networking", "Software Development", "Mobile Development", "UI/UX Design", "Data Analytics", "Project Management", "Business", "Communication"]
 
@@ -76,16 +88,16 @@ type AgendaItem = { time: string; activity: string }
 
 type NewAccum = {
   title: string; type: string;
-  courses: string[]; deadline: string; duration: string; points: string; description: string
+  courses: string[]; deadline: string; duration: string; description: string
   skillTags: string[]; inCharge: PersonInCharge[]; resourceLink: string
   challenges: TypeSpecificItem[]; modules: TypeSpecificItem[]
-  tasks: TypeSpecificItem[]; agenda: AgendaItem[]
+  tests: TypeSpecificItem[]; agenda: AgendaItem[]
 }
 
 const EMPTY_FORM: NewAccum = {
-  title: "", type: "Challenge", courses: [], deadline: "", duration: "", points: "",
+  title: "", type: "Challenge", courses: [], deadline: "", duration: "",
   description: "", skillTags: [], inCharge: [], resourceLink: "",
-  challenges: [], modules: [], tasks: [], agenda: [],
+  challenges: [], modules: [], tests: [], agenda: [],
 }
 const EMPTY_PERSON: PersonInCharge = { name: "", role: "", email: "" }
 const EMPTY_ITEM: TypeSpecificItem = { title: "", description: "" }
@@ -138,26 +150,10 @@ function CreateAccumulationModal({ onClose, onSubmit }: { onClose: () => void; o
     if (!form.courses.length) e.courses = "Select at least one"
     if (!form.deadline) e.deadline = "Required"
     if (!form.duration.trim()) e.duration = "Required"
-    if (!form.points || isNaN(Number(form.points)) || Number(form.points) <= 0) e.points = "Must be a positive number"
     if (!form.description.trim()) e.description = "Required"
     else if (form.description.length > 1000) e.description = "Max 1000 characters"
 
-    if (form.type === "Challenge") {
-      if (!form.challenges.length) e.challenges = "Add at least one challenge"
-      else if (form.challenges.some(c => !c.title.trim() || !c.description.trim())) e.challenges = "Each challenge must have title and description"
-    }
-    if (form.type === "Course") {
-      if (!form.modules.length) e.modules = "Add at least one module"
-      else if (form.modules.some(m => !m.title.trim() || !m.description.trim())) e.modules = "Each module must have title and description"
-    }
-    if (form.type === "Event") {
-      if (!form.agenda.length) e.agenda = "Add at least one agenda item"
-      else if (form.agenda.some(a => !a.time.trim() || !a.activity.trim())) e.agenda = "Each agenda item must have time and activity"
-    }
-    if (form.type === "Task") {
-      if (!form.tasks.length) e.tasks = "Add at least one task"
-      else if (form.tasks.some(t => !t.title.trim() || !t.description.trim())) e.tasks = "Each task must have title and description"
-    }
+    if (!form.resourceLink.trim()) e.resourceLink = "Required"
 
     setErrors(e)
     return !Object.keys(e).length
@@ -251,11 +247,14 @@ function CreateAccumulationModal({ onClose, onSubmit }: { onClose: () => void; o
             </div>
           </div>
 
-          {/* Points */}
+          {/* Points (auto-calculated) */}
           <div className="space-y-1">
-            <label htmlFor="accum-points" className="text-sm font-medium">Points</label>
-            <input id="accum-points" type="number" min={1} value={form.points} onChange={e => set("points", e.target.value)} placeholder="e.g. 150" className={inputCls} />
-            {errors.points && <p className="text-xs text-red-500">{errors.points}</p>}
+            <label className="text-sm font-medium">Points <span className="text-muted-foreground font-normal">(auto-calculated)</span></label>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md border bg-muted/30 text-sm">
+              <Trophy className="h-4 w-4 text-primary shrink-0" />
+              <span className="font-semibold text-primary">{calculateAccumPoints(form.skillTags, form.type)}</span>
+              <span className="text-muted-foreground text-xs">pts · {form.skillTags.length} tag{form.skillTags.length !== 1 ? "s" : ""} × {TYPE_MULTIPLIER[form.type] ?? 1.0}× ({form.type})</span>
+            </div>
           </div>
 
           {/* Description */}
@@ -266,80 +265,7 @@ function CreateAccumulationModal({ onClose, onSubmit }: { onClose: () => void; o
             {errors.description && <p className="text-xs text-red-500">{errors.description}</p>}
           </div>
 
-          {/* Type-specific parameters */}
-          <div className="space-y-3">
-            {form.type === "Challenge" && (
-              <div className="space-y-2 border p-3 rounded-lg bg-muted/10">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">Challenges</h3>
-                  <Button type="button" variant="outline" size="sm" onClick={() => set("challenges", [...form.challenges, { ...EMPTY_ITEM }])} className="h-7 text-xs gap-1"><Plus className="h-3 w-3" />Add Challenge</Button>
-                </div>
-                {form.challenges.length === 0 && <p className="text-xs text-muted-foreground">Add at least one challenge item.</p>}
-                {form.challenges.map((item, idx) => (
-                  <div key={`challenge-${idx}`} className="grid gap-2 md:grid-cols-2 p-2 rounded border bg-white">
-                    <input value={item.title} onChange={e => set("challenges", form.challenges.map((c, i) => i === idx ? { ...c, title: e.target.value } : c))} placeholder="Challenge title" className={inputCls} />
-                    <input value={item.description} onChange={e => set("challenges", form.challenges.map((c, i) => i === idx ? { ...c, description: e.target.value } : c))} placeholder="Challenge description" className={inputCls} />
-                    <button type="button" onClick={() => set("challenges", form.challenges.filter((_, i) => i !== idx))} className="text-xs text-red-600">Remove</button>
-                  </div>
-                ))}
-                {errors.challenges && <p className="text-xs text-red-500">{errors.challenges}</p>}
-              </div>
-            )}
 
-            {form.type === "Course" && (
-              <div className="space-y-2 border p-3 rounded-lg bg-muted/10">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">Course Modules</h3>
-                  <Button type="button" variant="outline" size="sm" onClick={() => set("modules", [...form.modules, { ...EMPTY_ITEM }])} className="h-7 text-xs gap-1"><Plus className="h-3 w-3" />Add Module</Button>
-                </div>
-                {form.modules.length === 0 && <p className="text-xs text-muted-foreground">Add at least one module.</p>}
-                {form.modules.map((item, idx) => (
-                  <div key={`module-${idx}`} className="grid gap-2 md:grid-cols-2 p-2 rounded border bg-white">
-                    <input value={item.title} onChange={e => set("modules", form.modules.map((c, i) => i === idx ? { ...c, title: e.target.value } : c))} placeholder="Module title" className={inputCls} />
-                    <input value={item.description} onChange={e => set("modules", form.modules.map((c, i) => i === idx ? { ...c, description: e.target.value } : c))} placeholder="Module description" className={inputCls} />
-                    <button type="button" onClick={() => set("modules", form.modules.filter((_, i) => i !== idx))} className="text-xs text-red-600">Remove</button>
-                  </div>
-                ))}
-                {errors.modules && <p className="text-xs text-red-500">{errors.modules}</p>}
-              </div>
-            )}
-
-            {form.type === "Event" && (
-              <div className="space-y-2 border p-3 rounded-lg bg-muted/10">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">Event Agenda</h3>
-                  <Button type="button" variant="outline" size="sm" onClick={() => set("agenda", [...form.agenda, { ...EMPTY_AGENDA }])} className="h-7 text-xs gap-1"><Plus className="h-3 w-3" />Add Agenda Item</Button>
-                </div>
-                {form.agenda.length === 0 && <p className="text-xs text-muted-foreground">Add at least one agenda item.</p>}
-                {form.agenda.map((item, idx) => (
-                  <div key={`agenda-${idx}`} className="grid gap-2 md:grid-cols-3 p-2 rounded border bg-white">
-                    <input value={item.time} onChange={e => set("agenda", form.agenda.map((c, i) => i === idx ? { ...c, time: e.target.value } : c))} placeholder="Time" className={inputCls} />
-                    <input value={item.activity} onChange={e => set("agenda", form.agenda.map((c, i) => i === idx ? { ...c, activity: e.target.value } : c))} placeholder="Activity" className={inputCls} />
-                    <button type="button" onClick={() => set("agenda", form.agenda.filter((_, i) => i !== idx))} className="text-xs text-red-600">Remove</button>
-                  </div>
-                ))}
-                {errors.agenda && <p className="text-xs text-red-500">{errors.agenda}</p>}
-              </div>
-            )}
-
-            {form.type === "Task" && (
-              <div className="space-y-2 border p-3 rounded-lg bg-muted/10">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">Tasks</h3>
-                  <Button type="button" variant="outline" size="sm" onClick={() => set("tasks", [...form.tasks, { ...EMPTY_ITEM }])} className="h-7 text-xs gap-1"><Plus className="h-3 w-3" />Add Task</Button>
-                </div>
-                {form.tasks.length === 0 && <p className="text-xs text-muted-foreground">Add at least one task item.</p>}
-                {form.tasks.map((item, idx) => (
-                  <div key={`task-${idx}`} className="grid gap-2 md:grid-cols-2 p-2 rounded border bg-white">
-                    <input value={item.title} onChange={e => set("tasks", form.tasks.map((c, i) => i === idx ? { ...c, title: e.target.value } : c))} placeholder="Task title" className={inputCls} />
-                    <input value={item.description} onChange={e => set("tasks", form.tasks.map((c, i) => i === idx ? { ...c, description: e.target.value } : c))} placeholder="Task description" className={inputCls} />
-                    <button type="button" onClick={() => set("tasks", form.tasks.filter((_, i) => i !== idx))} className="text-xs text-red-600">Remove</button>
-                  </div>
-                ))}
-                {errors.tasks && <p className="text-xs text-red-500">{errors.tasks}</p>}
-              </div>
-            )}
-          </div>
 
           {/* People in Charge */}
           <div className="space-y-2">
@@ -361,9 +287,9 @@ function CreateAccumulationModal({ onClose, onSubmit }: { onClose: () => void; o
 
           {/* Resource Link */}
           <div className="space-y-1">
-            <label htmlFor="accum-link" className="text-sm font-medium">Resource Link <span className="text-muted-foreground font-normal">(optional)</span></label>
+            <label htmlFor="accum-link" className="text-sm font-medium">Resource Link</label>
             <input id="accum-link" value={form.resourceLink} onChange={e => set("resourceLink", e.target.value)} placeholder="https://..." className={inputCls} />
-            <p className="text-xs text-muted-foreground">Link to external platform, docs, or additional details for students.</p>
+            {errors.resourceLink && <p className="text-xs text-red-500">{errors.resourceLink}</p>}
           </div>
 
           <div className="flex justify-end gap-2 pt-1">
@@ -411,6 +337,8 @@ export default function AccumulationsPage({
   const [showModal, setShowModal] = useState(false)
   const [gradesMap, setGradesMap] = useState<Record<string, GradesMap>>({})
   const [gradingName, setGradingName] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Cancelled' | 'Completed'>('all')
 
   const getGrade = (accumId: string, name: string): ParticipantGrade =>
     gradesMap[accumId]?.[name] ?? { grade: "", skillRatings: {}, feedback: "" }
@@ -421,9 +349,18 @@ export default function AccumulationsPage({
       [accumId]: { ...prev[accumId], [name]: { ...getGrade(accumId, name), ...patch } },
     }))
 
-  const endAccum = async (id: string) => {
+  const completeAccum = async (id: string) => {
     try {
-      const res = await apiClient.patch(`/accumulations/${id}/end`)
+      const res = await apiClient.patch(`/accumulations/school/${id}/complete`)
+      onAccumUpdate?.(res.data.data)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const cancelAccum = async (id: string) => {
+    try {
+      const res = await apiClient.patch(`/accumulations/school/${id}/cancel`)
       onAccumUpdate?.(res.data.data)
     } catch (err) {
       console.error(err)
@@ -433,7 +370,7 @@ export default function AccumulationsPage({
   const handleCreate = async (data: NewAccum) => {
     try {
       const formatted = new Date(data.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-      const res = await apiClient.post('/accumulations', {
+      const res = await apiClient.post('/accumulations/school', {
         title: data.title,
         type: data.type,
         source: "school",
@@ -441,7 +378,7 @@ export default function AccumulationsPage({
         courses: data.courses,
         deadline: formatted,
         duration: data.duration,
-        points: Number(data.points),
+        points: calculateAccumPoints(data.skillTags, data.type),
         description: data.description,
         skillTags: data.skillTags,
         resourceLink: data.resourceLink,
@@ -450,7 +387,7 @@ export default function AccumulationsPage({
         challenges: data.challenges,
         modules: data.modules,
         agenda: data.agenda,
-        tasks: data.tasks,
+        tests: data.tests,
       })
       onAccumCreate?.(res.data.data)
       setShowModal(false)
@@ -571,8 +508,9 @@ export default function AccumulationsPage({
     const sourceColor = selectedAccum.source === "school" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
     const accum = accums.find(a => (a._id ?? a.id) === (selectedAccum._id ?? selectedAccum.id)) ?? selectedAccum
     const accumId = accum._id ?? accum.id
-    const isEnded = accum.status === "Ended"
-    const canEnd = accum.source === "school" && (accum.status === "Active" || accum.status === "Closing Soon")
+    const isCompleted = accum.status === "Completed"
+    const isCancelled = accum.status === "Cancelled"
+    const canAct = accum.source === "school" && accum.status === "Active"
 
     return (
       <div className="space-y-6">
@@ -584,18 +522,24 @@ export default function AccumulationsPage({
               <p className="text-muted-foreground">Created by {accum.createdBy}</p>
             </div>
           </div>
-          {canEnd && (
-            <Button variant="destructive" size="sm" onClick={() => endAccum(accumId)}>End Accumulation</Button>
+          {canAct && (
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={() => completeAccum(accumId)} className="bg-green-600 hover:bg-green-700 text-white">Complete Accumulation</Button>
+              <Button variant="outline" size="sm" onClick={() => cancelAccum(accumId)} className="text-destructive border-destructive hover:bg-destructive/10">Cancel Accumulation</Button>
+            </div>
           )}
-          {isEnded && (
-            <span className="text-xs px-3 py-1 rounded-full bg-red-100 text-red-700 font-medium">Ended</span>
+          {isCompleted && (
+            <span className="text-xs px-3 py-1 rounded-full bg-green-100 text-green-700 font-medium">Completed</span>
+          )}
+          {isCancelled && (
+            <span className="text-xs px-3 py-1 rounded-full bg-red-100 text-red-700 font-medium">Cancelled</span>
           )}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard title="Points" value={String(accum.points)} description="performance points" icon={Trophy} trend="on completion" trendUp />
           <StatCard title="Duration" value={accum.duration} description="estimated time" icon={Clock} trend={accum.deadline} trendUp />
-          <StatCard title="Participants" value={String(accum.participants)} description="students enrolled" icon={Users} trend="active" trendUp={accum.participants > 0} />
+          <StatCard title="Participants" value={String(accum.participants)} description="students participating" icon={Users} trend="active" trendUp={accum.participants > 0} />
           <StatCard title="Field" value={accum.field} description="performance area" icon={TrendingUp} trend="boosted" trendUp />
         </div>
 
@@ -711,22 +655,22 @@ export default function AccumulationsPage({
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>{isEnded ? "Grade Participants" : "Participants"}</CardTitle>
+                  <CardTitle>{isCompleted ? "Grade Participants" : "Participants"}</CardTitle>
                   <CardDescription>
                     {accum.participantList.length === 0
                       ? "No participants yet"
-                      : isEnded
+                      : isCompleted
                         ? `${accum.participantList.length} participant${accum.participantList.length !== 1 ? "s" : ""} to grade`
                         : `${accum.participantList.filter(p => p.status === "Completed").length} of ${accum.participantList.length} completed`}
                   </CardDescription>
                 </div>
-                {isEnded && <ClipboardList className="h-5 w-5 text-primary" />}
+                {isCompleted && <ClipboardList className="h-5 w-5 text-primary" />}
               </div>
             </CardHeader>
             <CardContent>
               {accum.participantList.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Registrations open when the accumulation starts.</p>
-              ) : isEnded ? (
+              ) : isCompleted ? (
                 <div className="space-y-3">
                   {accum.participantList.map(p => {
                     const initials = p.name.split(" ").map(n => n[0]).join("")
@@ -839,7 +783,13 @@ export default function AccumulationsPage({
     )
   }
 
-  const filtered = (accums ?? []).filter(a => a.source === tab)
+  const filtered = (accums ?? []).filter(a => 
+    a.source === tab && 
+    (statusFilter === 'all' || a.status === statusFilter) &&
+    (a.title.toLowerCase().includes(search.toLowerCase()) ||
+     a.description.toLowerCase().includes(search.toLowerCase()) ||
+     a.field.toLowerCase().includes(search.toLowerCase()))
+  )
 
   return (
     <div className="space-y-6">
@@ -863,10 +813,45 @@ export default function AccumulationsPage({
 
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard title="Total" value={String(filtered.length)} description={tab === "school" ? "school accumulations" : "company accumulations"} icon={Layers} trend="active" trendUp />
-        <StatCard title="Total Participants" value={String(filtered.reduce((s, a) => s + a.participants, 0))} description="students enrolled" icon={Users} trend="across all" trendUp />
+        <StatCard title="Total Participants" value={String(filtered.reduce((s, a) => s + a.participants, 0))} description="students participating" icon={Users} trend="across all" trendUp />
         <StatCard title="Total Points Available" value={String(filtered.reduce((s, a) => s + a.points, 0))} description="performance points" icon={Trophy} trend="earnable" trendUp />
       </div>
 
+      {/* Search + Filter */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input
+            type="text"
+            placeholder="Search accumulations..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
+        </div>
+        <div className="flex gap-2">
+          {(['all', 'Active', 'Cancelled', 'Completed'] as const).map(s => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStatusFilter(s)}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                statusFilter === s
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background text-muted-foreground hover:border-primary'
+              }`}
+            >
+              {s === 'all' ? 'All' : s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <p>No accumulations match your search or filters.</p>
+        </div>
+      ) : (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filtered.map(accum => {
           const Icon = typeIcon(accum.type)
@@ -893,7 +878,7 @@ export default function AccumulationsPage({
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <div className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /><span>{accum.duration}</span></div>
                     <div className="flex items-center gap-1"><Trophy className="h-3.5 w-3.5" /><span>{accum.points} pts</span></div>
-                    <div className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /><span>{accum.participants} enrolled</span></div>
+                    <div className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /><span>{accum.participants} participating</span></div>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <CalendarDays className="h-3.5 w-3.5 shrink-0" /><span>Due {accum.deadline}</span>
@@ -904,6 +889,7 @@ export default function AccumulationsPage({
           )
         })}
       </div>
+      )}
     </div>
   )
 }

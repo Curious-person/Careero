@@ -417,6 +417,88 @@ export const removeTargetStudent = async (req: ExtendedAuthRequest, res: Respons
 };
 
 /**
+ * Create a company profile (for school users)
+ * Also creates a company user account and links it to the profile
+ * POST /api/v1/company/profiles
+ */
+export const createCompanyProfileBySchool = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const {
+      name, industry, size, founded, description,
+      logo, website, email, phone, address, targetStudents,
+      userEmail, userPassword,
+    } = req.body;
+
+    if (!name || !industry || !size || !founded || !description || !email) {
+      return res.status(400).json({
+        message: 'Missing required fields',
+        required: ['name', 'industry', 'size', 'founded', 'description', 'email'],
+      });
+    }
+
+    if (!userEmail || !userPassword) {
+      return res.status(400).json({
+        message: 'Company user credentials are required',
+        required: ['userEmail', 'userPassword'],
+      });
+    }
+
+    // Dynamically import to avoid circular deps
+    const { User } = await import('../models/User');
+    const bcrypt = await import('bcryptjs');
+
+    const existingUser = await User.findOne({ email: userEmail });
+    if (existingUser) {
+      return res.status(409).json({ message: 'A user with this email already exists' });
+    }
+
+    const passwordHash = await bcrypt.hash(userPassword, 10);
+    const companyUser = await User.create({
+      email: userEmail,
+      password: passwordHash,
+      role: 'company',
+      isVerified: true,
+    });
+
+    let profile;
+    try {
+      profile = await CompanyProfile.create({
+        user: companyUser._id,
+        name, industry, size, founded, description,
+        logo, website, email, phone, address,
+        targetStudents: targetStudents || [],
+        createdBySchool: true,
+      });
+    } catch (profileError) {
+      // Roll back user creation if profile fails
+      await User.findByIdAndDelete(companyUser._id);
+      throw profileError;
+    }
+
+    res.status(201).json({
+      message: 'Company and user account created successfully',
+      profile,
+      user: { id: companyUser._id, email: companyUser.email, role: companyUser.role },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get all company profiles (for school dashboard)
+ * GET /api/v1/company/profiles
+ */
+export const getAllCompanyProfiles = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const profiles = await CompanyProfile.find({}).select('-user').lean();
+    res.json({ message: 'Company profiles retrieved successfully', profiles });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get company profile completeness score
  * GET /api/v1/company/profile/completeness
  */

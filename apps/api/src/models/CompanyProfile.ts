@@ -16,8 +16,9 @@ export interface ITargetStudent {
  * Contains all company information displayed in settings
  */
 export interface ICompanyProfile extends Document {
-  // User reference (company account)
-  user: mongoose.Types.ObjectId;
+  // User reference (company account) - optional for school-created profiles
+  user?: mongoose.Types.ObjectId;
+  createdBySchool: boolean;
   
   // Basic Information
   name: string;           // Company name
@@ -84,9 +85,14 @@ const CompanyProfileSchema = new Schema<ICompanyProfile>(
     user: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
-      unique: true, // One profile per company user
+      required: false,
+      sparse: true, // allows multiple null values with unique index
+      unique: true,
       index: true,
+    },
+    createdBySchool: {
+      type: Boolean,
+      default: false,
     },
     name: {
       type: String,

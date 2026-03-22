@@ -94,7 +94,7 @@ export default function ParticipantManagementModal({
             Manage Participants - {accumulation.title}
           </DialogTitle>
           <DialogDescription>
-            {participants.length} participant{participants.length !== 1 ? 's' : ''} enrolled
+            {participants.length} participant{participants.length !== 1 ? 's' : ''}
           </DialogDescription>
         </DialogHeader>
 

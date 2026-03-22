@@ -19,9 +19,9 @@ import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Responsi
 
 const schoolNavigation = [
   { name: 'Dashboard',     href: '/dashboard/school',               icon: LayoutDashboard },
-  { name: 'Students',      href: '/dashboard/school/students',      icon: GraduationCap },
-  { name: 'Companies',     href: '/dashboard/school/company',       icon: Building2 },
-  { name: 'Accumulations', href: '/dashboard/school/accumulations', icon: Layers },
+  { name: 'Students',      href: '/dashboard/school',               icon: GraduationCap },
+  { name: 'Companies',     href: '/dashboard/school',               icon: Building2 },
+  { name: 'Accumulations', href: '/dashboard/school',               icon: Layers },
   { name: 'Settings',      href: '/dashboard/school/settings',      icon: Settings },
 ]
 
@@ -392,18 +392,22 @@ export default function SchoolStudentProfilePage() {
                           </p>
                           <p className="text-xs text-blue-600 font-medium mt-1 line-clamp-1 italic">&quot;{cert.ocrText}&quot;</p>
                         </div>
-                        {cert.fileData && (
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-10 w-10 bg-white shadow-sm border border-gray-100 rounded-full text-gray-400 hover:text-blue-600 shrink-0">
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-xl p-0 overflow-hidden bg-transparent border-0 rounded-[24px]">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-10 w-10 bg-white shadow-sm border border-gray-100 rounded-full text-gray-400 hover:text-blue-600 shrink-0">
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-xl p-0 overflow-hidden bg-transparent border-0 rounded-[24px]">
+                            {cert.fileData ? (
                               <Image src={cert.fileData} alt={cert.fileName} width={800} height={600} className="w-full h-auto object-contain bg-black/90" unoptimized />
-                            </DialogContent>
-                          </Dialog>
-                        )}
+                            ) : (
+                              <div className="bg-white rounded-[24px] p-8 text-center">
+                                <p className="text-sm text-gray-500">No image preview available for this certificate.</p>
+                              </div>
+                            )}
+                          </DialogContent>
+                        </Dialog>
                       </div>
                     ))}
                   </CardContent>

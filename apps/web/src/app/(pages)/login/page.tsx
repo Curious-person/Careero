@@ -123,6 +123,7 @@ export default function LoginPage() {
     setError('')
     try {
       const { data } = await apiClient.post('/auth/login', { email, password })
+      localStorage.setItem('user', JSON.stringify(data.user))
       router.push(getRedirectPath(data.user.role))
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid credentials')
@@ -166,7 +167,8 @@ export default function LoginPage() {
 
     setLoading(true)
     try {
-      await apiClient.post('/auth/register', { email, password, role: 'student' })
+      const { data: regData } = await apiClient.post('/auth/register', { email, password, role: 'student' })
+      localStorage.setItem('user', JSON.stringify(regData.user))
       // Instantly inject the user into the Academic Sync & Evidence Upload Flow
       router.push('/dashboard/student/onboarding')
     } catch (err: any) {

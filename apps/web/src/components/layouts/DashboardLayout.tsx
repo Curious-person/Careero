@@ -1,23 +1,24 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { logoutSession, apiClient } from "@/lib/apiClient"
+import { logoutSession } from "@/lib/apiClient"
 import {
-  LayoutDashboard,
-  Users,
-  FileText,
-  Menu,
-  X,
-  LogOut,
   Bell,
-  ChevronLeft,
-  ChevronRight,
   Briefcase,
   Building,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Settings,
+  Users,
+  X,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 
 interface UserInfo {
   email: string
@@ -42,17 +43,6 @@ export default function DashboardLayout({ children, navigation: navProp, user }:
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [currentUser, setCurrentUser] = useState<{ displayName: string; email: string; role: string } | null>(null)
-
-  useEffect(() => {
-    apiClient.get('/auth/me')
-      .then(res => setCurrentUser(res.data))
-      .catch(() => {}) // Silently fail — user stays as null
-  }, [])
-
-  const initials = currentUser
-    ? currentUser.displayName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
-    : '?'
 
   const defaultNavigation: NavItem[] = [
     { name: "Dashboard", href: "/dashboard/company", icon: LayoutDashboard },
@@ -160,12 +150,12 @@ export default function DashboardLayout({ children, navigation: navProp, user }:
           <div className="p-4 border-t">
             <div className={`flex items-center gap-3 mb-4 ${sidebarCollapsed ? "justify-center" : ""}`}>
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <span className="text-sm font-medium text-primary">{currentUser ? initials : getUserInitials(user?.name, user?.email)}</span>
+                <span className="text-sm font-medium text-primary">{userInitials}</span>
               </div>
               {!sidebarCollapsed && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{currentUser?.displayName ?? displayName}</p>
-                  <p className="text-xs text-muted-foreground truncate">{currentUser?.email ?? displayEmail}</p>
+                  <p className="text-sm font-medium truncate">{displayName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{displayEmail}</p>
                 </div>
               )}
             </div>

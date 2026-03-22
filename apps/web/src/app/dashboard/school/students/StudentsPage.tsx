@@ -1,15 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { BookOpen, GraduationCap, TrendingUp, ChevronLeft, Mail, Phone, Layers, Trophy, Search, ArrowUpDown, UserCheck, Clock, Pencil, Trash2, Plus, ShieldCheck, X, CheckCircle, BookMarked } from "lucide-react"
-import { COURSES, PENDING_STUDENTS } from "../_data/school-data"
-import { StatCard, PerformanceBar, StatusBadge } from "../_components/shared"
-import type { Student, PendingStudent } from "../_data/school-data"
-import type { Accum } from "../accumulations/AccumulationsPage"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { apiClient } from "@/lib/apiClient"
+import { motion } from 'framer-motion'
+import { ArrowUpDown, Award, BadgeInfo, BookOpen, ChevronLeft, Clock, GraduationCap, HelpCircle, Mail, Pencil, Phone, Plus, Search, ShieldAlert, ShieldCheck, Trash2, UserCheck, X } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer } from 'recharts'
+import type { Student } from "../_data/school-data"
+import { COURSES } from "../_data/school-data"
+import type { Accum } from "../accumulations/AccumulationsPage"
 
 const COURSE_CODES = COURSES.map(c => c.code)
 
@@ -113,13 +115,16 @@ function mapProfileToStudent(p: any): Student & { profileId: string } {
     : 0
   return {
     profileId: p._id,
-    name: fullName || "Unknown",
+    name: fullName || "",
     id: p.basicInfo?.studentId || p._id,
     year: p.basicInfo?.yearLevel || "—",
-    status: STATUS_MAP[p.status] ?? "Pending",
+    section: p.basicInfo?.section || "",
+    status: STATUS_MAP[p.status] ?? "",
     email: (p.user as any)?.email || "",
     phone: "",
     gpa,
+    totalPoints: p.totalPoints ?? 0,
+    skillTags: (p.skillTags ?? []).slice(0, 3).map((t: any) => typeof t === 'string' ? t : t.tag),
     performance,
     completedAccums: [],
     currentAccums: [],
@@ -163,6 +168,8 @@ export default function StudentsPage({
   const [deleteTarget, setDeleteTarget] = useState<DbPendingStudent | null>(null)
   const [pendingSearch, setPendingSearch] = useState("")
   const [pendingSort, setPendingSort] = useState("name")
+  const [fullProfile, setFullProfile] = useState<any>(null)
+  const [profileLoading, setProfileLoading] = useState(false)
 
   const loadStudents = () => {
     apiClient.get('/profile/students').then(res => {
@@ -198,6 +205,18 @@ export default function StudentsPage({
   }
 
   useEffect(() => { loadStudents() }, [])
+
+  useEffect(() => {
+    if (selectedStudent && selectedStudent.profileId) {
+      setProfileLoading(true)
+      apiClient.get(`/profile/${selectedStudent.profileId}`)
+        .then(res => setFullProfile(res.data.data))
+        .catch(() => setFullProfile(null))
+        .finally(() => setProfileLoading(false))
+    } else {
+      setFullProfile(null)
+    }
+  }, [selectedStudent])
 
   const courses = dbCourses.length ? dbCourses : COURSES
 
@@ -245,130 +264,179 @@ export default function StudentsPage({
 
   // ── Verified student detail view ──────────────────────────────────────────
   if (selectedStudent && selectedCourse) {
-    const initials = selectedStudent.name.split(" ").map(n => n[0]).join("")
-    const topField = [...selectedStudent.performance].sort((a, b) => b.score - a.score)[0]
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Button type="button" variant="ghost" size="icon" title="Go back" onClick={onBack}><ChevronLeft className="h-5 w-5" /></Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">{selectedStudent.name}</h1>
-            <p className="text-muted-foreground">{selectedCourse.code} · {selectedStudent.year}</p>
+    if (profileLoading) {
+      return (
+        <div className="flex h-[80vh] items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading student profile...</p>
           </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard title="GPA" value={String(selectedStudent.gpa)} description="current standing" icon={TrendingUp} trend={selectedStudent.gpa >= 3.5 ? "Dean's List" : selectedStudent.status} trendUp={selectedStudent.gpa >= 3.5} />
-          <StatCard title="Status" value={selectedStudent.status} description="enrolment status" icon={GraduationCap} trend={selectedStudent.year} trendUp={selectedStudent.status === "Active"} />
-          <StatCard title="Top Field" value={topField.field} description="highest performance" icon={Trophy} trend={`${topField.score}%`} trendUp />
-          <StatCard title="Accumulations" value={String(selectedStudent.completedAccums.length)} description="completed" icon={Layers} trend={`${selectedStudent.currentAccums.length} in progress`} trendUp={selectedStudent.completedAccums.length > 0} />
+      )
+    }
+
+    if (!fullProfile) {
+      return (
+        <div className="flex h-[80vh] items-center justify-center">
+          <div className="text-center">
+            <ShieldAlert className="w-12 h-12 text-red-400 mx-auto mb-4" />
+            <h2 className="text-xl font-bold mb-2">Profile Not Found</h2>
+            <p className="text-gray-500">Unable to load student profile.</p>
+            <Button className="mt-4" onClick={onBack}>Go Back</Button>
+          </div>
         </div>
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-4">
-                <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <span className="text-lg font-bold text-primary">{initials}</span>
-                </div>
-                <div>
-                  <CardTitle>{selectedStudent.name}</CardTitle>
-                  <CardDescription>{selectedStudent.id}</CardDescription>
-                </div>
+      )
+    }
+
+    const isVerified = fullProfile.status === 'VERIFIED'
+
+    // Radar data calculation
+    const isSoftSkill = (tag: string) => ['leadership', 'agile', 'scrum', 'communication', 'teamwork'].includes(tag.toLowerCase());
+    const hardSkillsCount = fullProfile.skillTags.filter((s: any) => !isSoftSkill(typeof s === 'string' ? s : s.tag)).length;
+    const softSkillsCount = fullProfile.skillTags.filter((s: any) => isSoftSkill(typeof s === 'string' ? s : s.tag)).length;
+    
+    const radarData = fullProfile ? [
+      { subject: 'Academic Rating', score: fullProfile.pointsBreakdown?.academic || 0, fullMark: 1000, desc: 'Weighted GPA from university courses.', details: fullProfile.academicRecords.map((r: any) => ({ label: r.subject, value: `${r.grade} Grade` })) },
+      { subject: 'Valid Certs', score: fullProfile.pointsBreakdown?.cert || 0, fullMark: 1000, desc: 'Validated external credentials.', details: fullProfile.certifications.filter((c: any) => c.verified).map((c: any) => ({ label: c.classification?.labels?.[0] || 'Verification', value: `${c.awardedPoints} pts` })) },
+      { subject: 'Accumulations', score: fullProfile.pointsBreakdown?.accumulations || 0, fullMark: 1000, desc: 'Bounty & hackathon performance.', details: [] },
+      { subject: 'Extracurricular', score: fullProfile.pointsBreakdown?.achievement || 0, fullMark: 1000, desc: 'Leadership & club participation awards.', details: [] },
+      { subject: 'Hard Skills', score: fullProfile.pointsBreakdown?.hardSkills || 0, fullMark: 1000, desc: `${hardSkillsCount} technical capabilities strictly mapped.`, details: fullProfile.skillTags.filter((t: any) => t.tag && !['leadership', 'communication', 'teamwork', 'agile', 'scrum'].includes(t.tag.toLowerCase())).map((t: any) => ({ label: typeof t === 'string' ? t : t.tag, value: typeof t === 'string' ? '100%' : `${Math.round(t.confidence * 100)}% Confidence` })) },
+      { subject: 'Soft Skills', score: fullProfile.pointsBreakdown?.softSkills || 0, fullMark: 1000, desc: `${softSkillsCount} interpersonal strengths verified.`, details: fullProfile.skillTags.filter((t: any) => t.tag && ['leadership', 'communication', 'teamwork', 'agile', 'scrum'].includes(t.tag.toLowerCase())).map((t: any) => ({ label: typeof t === 'string' ? t : t.tag, value: typeof t === 'string' ? '100%' : `${Math.round(t.confidence * 100)}% Confidence` })) }
+    ] : []
+
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }} 
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-6 max-w-5xl mx-auto pb-20"
+      >
+        
+        {/* Verification Alert Banner */}
+        {!isVerified && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 flex gap-4 items-start shadow-sm">
+            <BadgeInfo className="w-6 h-6 text-yellow-600 shrink-0" />
+            <div>
+              <h3 className="text-sm font-bold text-yellow-800">Account Under Evaluation</h3>
+              <p className="text-sm text-yellow-700 mt-1 leading-relaxed">
+                This student's profile is currently being reviewed by your School Administration. 
+                Certain features like Accumulations, Jobs, and Public Sharing are temporarily locked until verification is complete.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Global Stats Heading */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 bg-white p-8 rounded-[32px] border border-gray-100 shadow-sm shadow-gray-200/50">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold tracking-tight">
+                {fullProfile.basicInfo.lastName}, {fullProfile.basicInfo.firstName} {fullProfile.basicInfo.middleName?.charAt(0)}.
+              </h1>
+              {isVerified ? (
+                <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold uppercase tracking-widest rounded-full flex items-center gap-1">
+                  <ShieldCheck className="w-4 h-4" /> Verified Target
+                </span>
+              ) : (
+                <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold uppercase tracking-widest rounded-full flex items-center gap-1">
+                  <ShieldAlert className="w-4 h-4" /> Unverified
+                </span>
+              )}
+            </div>
+            <p className="text-gray-500 font-medium">
+              {fullProfile.basicInfo.course} {fullProfile.basicInfo.section && `- ${fullProfile.basicInfo.section}`} • {fullProfile.basicInfo.yearLevel} • {fullProfile.basicInfo.studentId}
+            </p>
+            <div className="flex flex-wrap gap-2 mt-4">
+              {fullProfile.skillTags?.map((skill: any, i: number) => {
+                const tagString = typeof skill === 'string' ? skill : skill.tag;
+                return (
+                  <div key={i} className="px-3 py-1.5 bg-black text-white text-xs font-bold rounded-full inline-flex items-center shadow-sm">
+                    #{tagString}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="text-right">
+            <p className="text-xs uppercase font-bold text-gray-400 tracking-wider mb-1">Total Score</p>
+            <div className="flex items-center justify-end gap-3">
+              <div className="text-5xl font-black tracking-tighter text-blue-600">
+                {fullProfile.totalPoints.toLocaleString()} <span className="text-xl text-gray-300">pts</span>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2 text-sm"><Mail className="h-4 w-4 text-muted-foreground shrink-0" /><span>{selectedStudent.email}</span></div>
-              <div className="flex items-center gap-2 text-sm"><Phone className="h-4 w-4 text-muted-foreground shrink-0" /><span>{selectedStudent.phone}</span></div>
-              <div className="flex items-center gap-2 text-sm"><BookOpen className="h-4 w-4 text-muted-foreground shrink-0" /><span>{selectedCourse.name}</span></div>
-              <div className="pt-2"><StatusBadge status={selectedStudent.status} /></div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Academic Performance</CardTitle>
-              <CardDescription>Performance scores across key fields in {selectedCourse.code}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {selectedStudent.performance.map(p => <PerformanceBar key={p.field} field={p.field} score={p.score} />)}
-            </CardContent>
-          </Card>
+              
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full text-gray-400 hover:text-blue-600">
+                    <HelpCircle className="w-5 h-5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-5 rounded-[24px] shadow-xl border-gray-100 mr-8 mt-2" align="end">
+                  <h4 className="font-bold text-sm mb-4 tracking-tight flex items-center gap-2">
+                    <Award className="w-4 h-4 text-orange-500" /> Points Breakdown
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
+                      <span className="text-gray-500 font-medium">Academic Rating</span>
+                      <span className="font-bold">{fullProfile.pointsBreakdown?.academic || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
+                      <span className="text-gray-500 font-medium">Valid Certifications</span>
+                      <span className="font-bold">{fullProfile.pointsBreakdown?.cert || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
+                      <span className="text-gray-500 font-medium">Accumulations</span>
+                      <span className="font-bold">{fullProfile.pointsBreakdown?.accumulations || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
+                      <span className="text-gray-500 font-medium">Extracurricular</span>
+                      <span className="font-bold">{fullProfile.pointsBreakdown?.achievement || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
+                      <span className="text-gray-500 font-medium">Hard Skills</span>
+                      <span className="font-bold">{fullProfile.pointsBreakdown?.hardSkills || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm pb-1">
+                      <span className="text-gray-500 font-medium">Soft Skills</span>
+                      <span className="font-bold">{fullProfile.pointsBreakdown?.softSkills || 0}</span>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
         </div>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><BookMarked className="h-4 w-4 text-blue-500" />In Progress</CardTitle>
-            <CardDescription>Accumulations this student is currently taking</CardDescription>
+
+        {/* Radar Chart */}
+        <Card className="p-6">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl">Skill Assessment Radar</CardTitle>
+            <CardDescription>Comprehensive evaluation across all competency areas</CardDescription>
           </CardHeader>
           <CardContent>
-            {selectedStudent.currentAccums.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No accumulations in progress.</p>
-            ) : (
-              <div className="space-y-2">
-                {selectedStudent.currentAccums.map(title => {
-                  const accum = accums.find(a => a.title === title)
-                  return (
-                    <button
-                      key={title}
-                      type="button"
-                      onClick={() => accum && onSelectAccum(accum)}
-                      disabled={!accum}
-                      className="w-full text-left flex items-center justify-between p-3 rounded-lg border bg-blue-50/40 hover:bg-blue-50/70 hover:border-blue-300 transition-all"
-                    >
-                      <div className="flex items-center gap-2">
-                        <BookMarked className="h-4 w-4 text-blue-500 shrink-0" />
-                        <span className="text-sm font-medium">{title}</span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {accum && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{accum.type}</span>}
-                        <ChevronLeft className="h-4 w-4 text-muted-foreground rotate-180" />
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={radarData}>
+                  <PolarGrid />
+                  <PolarAngleAxis dataKey="subject" />
+                  <PolarRadiusAxis angle={90} domain={[0, 1000]} />
+                  <Radar name="Score" dataKey="score" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.1} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-green-500" />Completed Accumulations</CardTitle>
-            <CardDescription>Tasks, challenges and courses this student has finished</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {selectedStudent.completedAccums.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No accumulations completed yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {selectedStudent.completedAccums.map(title => {
-                  const accum = accums.find(a => a.title === title)
-                  return (
-                    <button
-                      key={title}
-                      type="button"
-                      onClick={() => accum && onSelectAccum(accum)}
-                      disabled={!accum}
-                      className="w-full text-left flex items-center justify-between p-3 rounded-lg border bg-green-50/40 hover:bg-green-50/70 hover:border-green-300 transition-all"
-                    >
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
-                        <span className="text-sm font-medium">{title}</span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {accum && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">{accum.type}</span>}
-                        <ChevronLeft className="h-4 w-4 text-muted-foreground rotate-180" />
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+
+        {/* Back button */}
+        <Button variant="ghost" onClick={onBack} className="gap-2 -ml-2">
+          <ChevronLeft className="w-4 h-4" /> Back to Students
+        </Button>
+      </motion.div>
     )
   }
 
   // ── Pending student detail view ───────────────────────────────────────────
   if (selectedPending) {
-    const initials = selectedPending.name.split(" ").map(n => n[0]).join("")
+    const parts = selectedPending.name.split(" "); const initials = [parts[0], parts[parts.length - 1]].filter(Boolean).map(n => n[0]).join("")
     const courseName = COURSES.find(c => c.code === selectedPending.course)?.name ?? selectedPending.course
     return (
       <>
@@ -506,7 +574,7 @@ export default function StudentsPage({
                   <ArrowUpDown className="h-4 w-4 text-muted-foreground shrink-0" />
                   <select value={sort} onChange={e => setSort(e.target.value)} title="Sort students" className="bg-transparent focus:outline-none text-sm cursor-pointer">
                     <option value="name">Name</option>
-                    <option value="gpa">GPA</option>
+                    <option value="gpa">Points</option>
                     <option value="status">Status</option>
                   </select>
                 </div>
@@ -523,7 +591,7 @@ export default function StudentsPage({
             ) : (
               <div className="space-y-2">
                 {filtered.map(student => {
-                  const initials = student.name.split(" ").map(n => n[0]).join("")
+                  const parts = student.name.split(" "); const initials = [parts[0], parts[parts.length - 1]].filter(Boolean).map(n => n[0]).join("")
                   return (
                     <button type="button" key={student.id} onClick={() => router.push(`/dashboard/school/students/${(student as any).profileId}`)} className="w-full text-left flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 hover:border-primary transition-all">
                       <div className="flex items-center gap-3">
@@ -532,12 +600,18 @@ export default function StudentsPage({
                         </div>
                         <div>
                           <p className="text-sm font-medium">{student.name}</p>
-                          <p className="text-xs text-muted-foreground">{student.id} · {student.year}</p>
+                          <p className="text-xs text-muted-foreground">{student.id} · {student.year}{student.section ? ` · ${student.section}` : ""}</p>
+                          {student.skillTags && student.skillTags.length > 0 && (
+                            <div className="flex gap-1 mt-1 flex-wrap">
+                              {student.skillTags.map((tag, i) => (
+                                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">#{tag}</span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground hidden sm:block">GPA {student.gpa}</span>
-                        <StatusBadge status={student.status} />
+                        <span className="text-xs text-muted-foreground hidden sm:block">{(student.totalPoints ?? 0).toLocaleString()} pts</span>
                         <ChevronLeft className="h-4 w-4 text-muted-foreground rotate-180" />
                       </div>
                     </button>
@@ -667,7 +741,7 @@ export default function StudentsPage({
               ) : (
                 <div className="space-y-2">
                   {filteredPending.map(student => {
-                    const initials = student.name.split(" ").map(n => n[0]).join("")
+                    const parts = student.name.split(" "); const initials = [parts[0], parts[parts.length - 1]].filter(Boolean).map(n => n[0]).join("")
                     return (
                       <div key={student._id} className="flex items-center justify-between p-3 rounded-lg border bg-yellow-50/40 hover:bg-yellow-50/70 transition-all">
                         <button type="button" className="flex items-center gap-3 flex-1 text-left" onClick={() => router.push(`/dashboard/school/students/${student._id}`)}>

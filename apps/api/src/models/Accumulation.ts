@@ -1,7 +1,7 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
 
 export type AccumSource = 'school' | string; // 'school' or company name
-export type AccumStatus = 'Active' | 'Closing Soon' | 'Ended';
+export type AccumStatus = 'Active' | 'Completed' | 'Cancelled';
 export type AccumType = 'Task' | 'Course' | 'Event';
 
 export interface IParticipant {
@@ -84,7 +84,7 @@ const AccumulationSchema = new Schema<IAccumulation>(
     deadline: { type: String, required: true },
     duration: { type: String, required: true },
     points: { type: Number, required: true },
-    status: { type: String, enum: ['Active', 'Closing Soon', 'Ended'], default: 'Active' },
+    status: { type: String, enum: ['Active', 'Cancelled', 'Completed'], default: 'Active' },
     participants: { type: Number, default: 0 },
     description: { type: String, default: '' },
     skillTags: [{ type: String }],

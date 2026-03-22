@@ -55,7 +55,7 @@ export const createAccumulation = async (data: {
   inCharge?: { name: string; role: string; email: string }[];
   modules?: { title: string; description: string }[];
   agenda?: { time: string; activity: string }[];
-  tasks?: { title: string; description: string }[];
+  tests?: { title: string; description: string }[];
 }) => {
   const title = data.title?.trim() ?? ''
   const description = data.description?.trim() ?? ''
@@ -79,20 +79,6 @@ export const createAccumulation = async (data: {
   if (!data.courses?.length) throw new Error('At least one course is required')
   if (!data.deadline) throw new Error('Deadline is required')
   if (!data.duration?.trim()) throw new Error('Duration is required')
-
-  // Type-specific validation
-  if (data.type === 'Course') {
-    if (!data.modules?.length) throw new Error('At least one module is required')
-    if (data.modules.some(item => !item.title?.trim() || !item.description?.trim())) throw new Error('Each module requires a title and description')
-  }
-  if (data.type === 'Event') {
-    if (!data.agenda?.length) throw new Error('At least one agenda item is required')
-    if (data.agenda.some(item => !item.time?.trim() || !item.activity?.trim())) throw new Error('Each agenda item requires time and activity')
-  }
-  if (data.type === 'Task') {
-    if (!data.tasks?.length) throw new Error('At least one task is required')
-    if (data.tasks.some(item => !item.title?.trim() || !item.description?.trim())) throw new Error('Each task requires a title and description')
-  }
 
   const firstTag = skillTags[0]
   const field = data.field || (firstTag ? TAG_TO_FIELD[firstTag] ?? firstTag : 'General')
@@ -134,14 +120,20 @@ export const createAccumulation = async (data: {
 export const endAccumulation = async (id: string, source: 'school' | 'company') => {
   const accum = await Accumulation.findById(id);
   if (!accum) throw new Error('Accumulation not found');
+  if (accum.createdBy !== source) throw new Error(`Only ${source} accumulations can be ended by ${source}`);
+  if (accum.status === 'Completed') throw new Error('Accumulation already completed');
+  if (accum.status === 'Cancelled') throw new Error('Accumulation is cancelled');
+  accum.status = 'Completed';
+  return accum.save();
+};
 
-  // Verify ownership using createdBy field
-  if (accum.createdBy !== source) {
-    throw new Error(`Only ${source} accumulations can be ended by ${source}`);
-  }
-
-  if (accum.status === 'Ended') throw new Error('Accumulation already ended');
-  accum.status = 'Ended';
+export const cancelAccumulation = async (id: string, source: 'school' | 'company') => {
+  const accum = await Accumulation.findById(id);
+  if (!accum) throw new Error('Accumulation not found');
+  if (accum.createdBy !== source) throw new Error(`Only ${source} accumulations can be cancelled by ${source}`);
+  if (accum.status === 'Cancelled') throw new Error('Accumulation already cancelled');
+  if (accum.status === 'Completed') throw new Error('Accumulation is already completed');
+  accum.status = 'Cancelled';
   return accum.save();
 };
 
@@ -155,7 +147,7 @@ export const gradeParticipant = async (
 ) => {
   const accum = await Accumulation.findById(accumId);
   if (!accum) throw new Error('Accumulation not found');
-  if (accum.status !== 'Ended') throw new Error('Grading is only allowed after the accumulation has ended');
+  if (accum.status !== 'Completed') throw new Error('Grading is only allowed after the accumulation has ended');
 
   const existing = accum.grades.find(g => g.participantName === participantName);
   if (existing) {

@@ -12,6 +12,7 @@ import {
   getMyCompanyAccumulations,
   createCompanyAccumulation,
   endCompanyAccumulation,
+  cancelCompanyAccumulation,
   deleteCompanyAccumulation,
 } from "@/lib/accumulationsApi"
 import { Calendar, Briefcase, Users, Target, AlertCircle, Loader2 } from "lucide-react"
@@ -27,6 +28,8 @@ export default function CompanyAccumulationsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingAccumulation, setEditingAccumulation] = useState<Accumulation | undefined>(undefined)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Cancelled' | 'Completed'>('all')
 
   // CRUD: READ - Fetch all company accumulations
   const fetchData = useCallback(async () => {
@@ -69,12 +72,9 @@ export default function CompanyAccumulationsPage() {
     }
   }
 
-  // CRUD: UPDATE - End accumulation
-  const handleEndAccumulation = async (accumulation: Accumulation) => {
-    if (!confirm(`Are you sure you want to end "${accumulation.title}"?`)) {
-      return
-    }
-
+  // CRUD: UPDATE - Complete accumulation
+  const handleCompleteAccumulation = async (accumulation: Accumulation) => {
+    if (!confirm(`Are you sure you want to complete "${accumulation.title}"?`)) return
     try {
       const response = await endCompanyAccumulation(accumulation._id)
       setAccumulations(prev => prev.map(acc =>
@@ -82,8 +82,23 @@ export default function CompanyAccumulationsPage() {
       ))
       setError(null)
     } catch (err: any) {
-      console.error('Failed to end accumulation:', err)
-      setError(err.response?.data?.message || 'Failed to end accumulation. Please try again.')
+      console.error('Failed to complete accumulation:', err)
+      setError(err.response?.data?.message || 'Failed to complete accumulation. Please try again.')
+    }
+  }
+
+  // CRUD: UPDATE - Cancel accumulation
+  const handleCancelAccumulation = async (accumulation: Accumulation) => {
+    if (!confirm(`Are you sure you want to cancel "${accumulation.title}"?`)) return
+    try {
+      const response = await cancelCompanyAccumulation(accumulation._id)
+      setAccumulations(prev => prev.map(acc =>
+        acc._id === accumulation._id ? response.data : acc
+      ))
+      setError(null)
+    } catch (err: any) {
+      console.error('Failed to cancel accumulation:', err)
+      setError(err.response?.data?.message || 'Failed to cancel accumulation. Please try again.')
     }
   }
 
@@ -175,6 +190,7 @@ export default function CompanyAccumulationsPage() {
             <button
               onClick={() => setError(null)}
               className="text-red-600 hover:text-red-800"
+              aria-label="Dismiss error"
             >
               <X className="h-4 w-4" />
             </button>
@@ -229,7 +245,7 @@ export default function CompanyAccumulationsPage() {
               value={totalParticipants.toString()}
               description="Across all accumulations"
               icon={Users}
-              trend="Enrolled"
+              trend="Participating"
               trendUp={true}
             />
             <StatCard
@@ -280,18 +296,63 @@ export default function CompanyAccumulationsPage() {
             />
           </div>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-2">
-            {accumulations.map((accumulation) => (
-              <CompanyAccumulationCard
-                key={accumulation._id}
-                accumulation={accumulation}
-                onViewParticipants={handleViewParticipants}
-                onEdit={handleEditAccumulation}
-                onDelete={handleDeleteAccumulation}
-                onEnd={handleEndAccumulation}
-              />
-            ))}
-          </div>
+          <>
+            {/* Search + Filter */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1 max-w-sm">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input
+                  type="text"
+                  placeholder="Search accumulations..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-sm rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div className="flex gap-2">
+                {(['all', 'Active', 'Cancelled', 'Completed'] as const).map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setStatusFilter(s)}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                      statusFilter === s
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background text-muted-foreground hover:border-primary'
+                    }`}
+                  >
+                    {s === 'all' ? 'All' : s}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {(() => {
+              const filtered = accumulations.filter(a =>
+                (statusFilter === 'all' || a.status === statusFilter) &&
+                (a.title.toLowerCase().includes(search.toLowerCase()) ||
+                  a.description.toLowerCase().includes(search.toLowerCase()))
+              )
+              return filtered.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <p>No accumulations match your search.</p>
+                </div>
+              ) : (
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {filtered.map((accumulation) => (
+                    <CompanyAccumulationCard
+                      key={accumulation._id}
+                      accumulation={accumulation}
+                      onViewParticipants={handleViewParticipants}
+                      onEdit={handleEditAccumulation}
+                      onDelete={handleDeleteAccumulation}
+                      onEnd={handleCompleteAccumulation}
+                      onCancel={handleCancelAccumulation}
+                    />
+                  ))}
+                </div>
+              )
+            })()}
+          </>
         )}
 
         {/* Participant Management Modal */}

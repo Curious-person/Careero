@@ -854,6 +854,7 @@ export default function StudentProfilePage() {
                         accept="image/*" 
                         onChange={handleFileUpload} 
                         disabled={uploadingCert}
+                        aria-label="Upload certification image"
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
                       />
                       <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-brand-blue">

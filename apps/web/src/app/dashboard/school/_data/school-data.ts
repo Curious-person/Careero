@@ -13,9 +13,13 @@ export type PendingStudent = {
 export type Student = {
   name: string; id: string; year: string; status: string
   email: string; phone: string; gpa: number
+  totalPoints?: number
+  section?: string
+  skillTags?: string[]
   performance: { field: string; score: number }[]
   completedAccums: string[]
   currentAccums: string[]
+  profileId?: string
 }
 
 export const COURSES = [

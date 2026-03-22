@@ -21,6 +21,7 @@ interface CompanyAccumulationCardProps {
   onEdit?: (accumulation: Accumulation) => void
   onDelete?: (accumulation: Accumulation) => void
   onEnd?: (accumulation: Accumulation) => void
+  onCancel?: (accumulation: Accumulation) => void
 }
 
 const getAccumTypeColor = (type: Accumulation['type']) => {
@@ -40,9 +41,9 @@ const getStatusColor = (status: Accumulation['status']) => {
   switch (status) {
     case 'Active':
       return 'bg-green-100 text-green-700'
-    case 'Closing Soon':
-      return 'bg-yellow-100 text-yellow-700'
-    case 'Ended':
+    case 'Cancelled':
+      return 'bg-red-100 text-red-700'
+    case 'Completed':
       return 'bg-gray-100 text-gray-700'
   }
 }
@@ -51,9 +52,11 @@ const getStatusIcon = (status: Accumulation['status']) => {
   switch (status) {
     case 'Active':
       return CheckCircle
-    case 'Closing Soon':
-      return Clock
-    case 'Ended':
+    case 'Cancelled':
+      return XCircle
+    case 'Completed':
+      return XCircle
+    default:
       return XCircle
   }
 }
@@ -74,7 +77,8 @@ export default function CompanyAccumulationCard({
   onViewParticipants,
   onEdit,
   onDelete,
-  onEnd
+  onEnd,
+  onCancel,
 }: CompanyAccumulationCardProps) {
   const TypeIcon = getTypeIcon(accumulation.type)
   const typeColor = getAccumTypeColor(accumulation.type)
@@ -196,15 +200,15 @@ export default function CompanyAccumulationCard({
             <Users className="h-4 w-4" />
             Participants ({accumulation.participantList.length})
           </Button>
-          {accumulation.status === 'Active' && onEnd && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onEnd(accumulation)}
-              className="text-yellow-600 hover:text-yellow-700"
-            >
-              End
-            </Button>
+          {accumulation.status === 'Active' && (onEnd || onCancel) && (
+            <div className="flex gap-2">
+              {onEnd && (
+                <Button size="sm" onClick={() => onEnd(accumulation)} className="bg-green-600 hover:bg-green-700 text-white">Complete</Button>
+              )}
+              {onCancel && (
+                <Button variant="outline" size="sm" onClick={() => onCancel(accumulation)} className="text-destructive hover:text-destructive">Cancel</Button>
+              )}
+            </div>
           )}
           {onEdit && (
             <Button

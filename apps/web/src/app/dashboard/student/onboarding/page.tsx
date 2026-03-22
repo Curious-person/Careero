@@ -15,7 +15,7 @@ type Step = 'BASIC_INFO' | 'ACADEMIC_SYNC' | 'EVIDENCE_UPLOAD' | 'COMPLETED'
 
 interface MockAcademicData {
   records: { subject: string, grade: number, units: number }[];
-  tags: string[];
+  tags: { tag: string, confidence: number }[] | string[];
   estimatedPoints: number;
 }
 
@@ -335,11 +335,14 @@ export default function OnboardingFlow() {
                       <Sparkles className="h-4 w-4 text-yellow-500" /> Auto-Assigned Skill Tags
                     </h3>
                     <div className="flex flex-wrap gap-2">
-                      {academicData.tags.map(tag => (
-                        <span key={tag} className="px-3 py-1 bg-black text-white text-xs font-semibold rounded-full">
-                          #{tag}
-                        </span>
-                      ))}
+                      {academicData.tags.map((tag, i) => {
+                        const label = typeof tag === 'object' ? tag.tag : tag
+                        return (
+                          <span key={i} className="px-3 py-1 bg-black text-white text-xs font-semibold rounded-full">
+                            #{label}
+                          </span>
+                        )
+                      })}
                     </div>
                   </div>
                 </div>

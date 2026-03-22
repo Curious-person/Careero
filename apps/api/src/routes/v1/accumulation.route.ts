@@ -28,8 +28,11 @@ router.get('/school/my', authorizeRoles('school'), accumulationController.getMyS
 // POST /api/v1/accumulations/school - Create a new school accumulation
 router.post('/school', authorizeRoles('school'), accumulationController.createSchoolAccumulation);
 
-// PATCH /api/v1/accumulations/school/:id/end - End a school accumulation
-router.patch('/school/:id/end', authorizeRoles('school'), accumulationController.endSchoolAccumulation);
+// PATCH /api/v1/accumulations/school/:id/complete - Complete a school accumulation
+router.patch('/school/:id/complete', authorizeRoles('school'), accumulationController.endSchoolAccumulation);
+
+// PATCH /api/v1/accumulations/school/:id/cancel - Cancel a school accumulation
+router.patch('/school/:id/cancel', authorizeRoles('school'), accumulationController.cancelSchoolAccumulation);
 
 // POST /api/v1/accumulations/school/:id/grade - Grade a participant (school)
 router.post('/school/:id/grade', authorizeRoles('school'), accumulationController.gradeSchoolParticipant);
@@ -53,8 +56,11 @@ router.get('/company/my', authorizeRoles('company'), accumulationController.getM
 // POST /api/v1/accumulations/company - Create a new company accumulation
 router.post('/company', authorizeRoles('company'), accumulationController.createCompanyAccumulation);
 
-// PATCH /api/v1/accumulations/company/:id/end - End a company accumulation
-router.patch('/company/:id/end', authorizeRoles('company'), accumulationController.endCompanyAccumulation);
+// PATCH /api/v1/accumulations/company/:id/complete - Complete a company accumulation
+router.patch('/company/:id/complete', authorizeRoles('company'), accumulationController.endCompanyAccumulation);
+
+// PATCH /api/v1/accumulations/company/:id/cancel - Cancel a company accumulation
+router.patch('/company/:id/cancel', authorizeRoles('company'), accumulationController.cancelCompanyAccumulation);
 
 // POST /api/v1/accumulations/company/:id/grade - Grade a participant (company)
 router.post('/company/:id/grade', authorizeRoles('company'), accumulationController.gradeCompanyParticipant);

@@ -23,11 +23,11 @@ apiClient.interceptors.response.use(
 // Global helper to instantly kill sessions securely
 export const logoutSession = async () => {
   try {
-    // 1. Tell the Express backend to register the logout event
     await apiClient.post('/auth/logout');
   } catch (error) {
     console.error('Backend logout failed:', error);
   } finally {
+    localStorage.removeItem('user')
     try {
       // 2. Ironclad Next.js native cookie destruction
       await fetch('/api/logout', { method: 'POST' });

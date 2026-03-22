@@ -4,7 +4,21 @@ import * as companyProfileController from '../../controllers/companyProfile.cont
 
 const router = Router();
 
-// All company profile routes require authentication
+/**
+ * @route   GET /api/v1/company/profiles
+ * @desc    Get all company profiles (public - for school dashboard)
+ * @access  Private
+ */
+router.get('/profiles', authenticateToken, companyProfileController.getAllCompanyProfiles);
+
+/**
+ * @route   POST /api/v1/company/profiles
+ * @desc    Create a company profile (school users)
+ * @access  Private
+ */
+router.post('/profiles', authenticateToken, companyProfileController.createCompanyProfileBySchool);
+
+// All company profile routes below require authentication
 router.use(authenticateToken);
 
 /**

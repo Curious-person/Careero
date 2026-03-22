@@ -3,6 +3,7 @@ import healthRoute from './health.route';
 import authRoute from './auth.route';
 import profileRoute from './profile.route';
 import accumulationRoute from './accumulation.route';
+import roleRoute from './role.route';
 
 const router = express.Router();
 
@@ -22,6 +23,10 @@ const defaultRoutes = [
   {
     path: '/accumulations',
     route: accumulationRoute,
+  },
+  {
+    path: '/roles',
+    route: roleRoute,
   },
 ];
 

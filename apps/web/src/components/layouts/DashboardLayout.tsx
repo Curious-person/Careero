@@ -39,9 +39,10 @@ export default function DashboardLayout({ children, navigation: navProp }: Dashb
 
   const defaultNavigation: NavItem[] = [
     { name: "Dashboard", href: "/dashboard/company", icon: LayoutDashboard },
-    { name: "Applicants", href: "/applicants/company", icon: Briefcase },
-    { name: "Team", href: "/team/company", icon: Users },
-    { name: "Settings", href: "/settings/company", icon: Settings },
+    { name: "Applicants", href: "/dashboard/company/applicants", icon: Briefcase },
+    { name: "Team & Roles", href: "/dashboard/company/team", icon: Users },
+    { name: "Accumulations", href: "/dashboard/company/accumulations", icon: FileText },
+    { name: "Settings", href: "/dashboard/company/settings", icon: Settings },
   ]
 
   const navigation = navProp ?? defaultNavigation

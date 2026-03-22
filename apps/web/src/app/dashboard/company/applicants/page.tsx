@@ -751,7 +751,7 @@ function AppointmentModal({
                 className="absolute inset-0 bg-black/50"
                 onClick={onClose}
             />
-            <div className="relative bg-white rounded-[20px] w-full max-w-lg mx-4">
+            <div className="relative bg-white rounded-[20px] w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
                 <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
                     <h2 className="text-xl font-bold">Schedule Interview</h2>
                     <button

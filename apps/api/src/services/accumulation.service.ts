@@ -1,12 +1,25 @@
-import { Accumulation, IParticipantGrade } from '../models/Accumulation';
+import { Accumulation, IParticipantGrade, AccumSource } from '../models/Accumulation';
 
+/**
+ * Get all accumulations (optionally filtered by source)
+ */
 export const getAllAccumulations = async (source?: string) => {
   const filter = source ? { source } : {};
   return Accumulation.find(filter).lean();
 };
 
+/**
+ * Get a single accumulation by ID
+ */
 export const getAccumulationById = async (id: string) => {
   return Accumulation.findById(id).lean();
+};
+
+/**
+ * Get accumulations by creator type (school or company)
+ */
+export const getAccumulationsByCreator = async (createdBy: 'school' | 'company') => {
+  return Accumulation.find({ createdBy }).lean();
 };
 
 const TAG_TO_FIELD: Record<string, string> = {
@@ -16,11 +29,15 @@ const TAG_TO_FIELD: Record<string, string> = {
   '#business': 'Business', '#communication': 'Communication',
 };
 
+/**
+ * Create a new accumulation
+ * Note: source and createdBy must be provided in data parameter
+ */
 export const createAccumulation = async (data: {
   title: string;
   type: string;
-  source: string;
-  createdBy: string;
+  source: 'school' | 'company';
+  createdBy: 'school' | 'company';
   field?: string;
   courses: string[];
   deadline: string;
@@ -85,15 +102,28 @@ export const createAccumulation = async (data: {
   })
 };
 
-export const endAccumulation = async (id: string) => {
+/**
+ * End an accumulation (school or company)
+ * @param id - Accumulation ID
+ * @param source - Source type to verify ownership ('school' or 'company')
+ */
+export const endAccumulation = async (id: string, source: 'school' | 'company') => {
   const accum = await Accumulation.findById(id);
   if (!accum) throw new Error('Accumulation not found');
-  if (accum.source !== 'school') throw new Error('Only school accumulations can be ended');
+  
+  // Verify ownership
+  if (accum.source !== source) {
+    throw new Error(`Only ${source} accumulations can be ended by ${source}`);
+  }
+  
   if (accum.status === 'Ended') throw new Error('Accumulation already ended');
   accum.status = 'Ended';
   return accum.save();
 };
 
+/**
+ * Grade a participant in an accumulation
+ */
 export const gradeParticipant = async (
   accumId: string,
   participantName: string,
@@ -112,8 +142,19 @@ export const gradeParticipant = async (
   return accum.save();
 };
 
-export const deleteAccumulation = async (id: string) => {
+/**
+ * Delete an accumulation (school or company)
+ * @param id - Accumulation ID
+ * @param source - Source type to verify ownership ('school' or 'company')
+ */
+export const deleteAccumulation = async (id: string, source: 'school' | 'company') => {
   const accum = await Accumulation.findByIdAndDelete(id);
   if (!accum) throw new Error('Accumulation not found');
+  
+  // Verify ownership
+  if (accum.source !== source) {
+    throw new Error(`Only ${source} accumulations can be deleted by ${source}`);
+  }
+  
   return accum;
 };

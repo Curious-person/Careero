@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import DashboardLayout from "@/components/layouts/DashboardLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,8 @@ import {
     ArrowUpRight,
     ArrowDownRight,
 } from "lucide-react"
+import { getCompanyDetails } from "@/lib/companyApi"
+import { ICompanyDetails } from "@/types/company"
 
 interface StatCardProps {
     title: string
@@ -175,8 +177,50 @@ function ActivityFeedItem({
 }
 
 export default function CompanyDashboardPage() {
+    const [companyDetails, setCompanyDetails] = useState<ICompanyDetails | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+
+    useEffect(() => {
+        const fetchCompanyDetails = async () => {
+            try {
+                const response = await getCompanyDetails()
+                setCompanyDetails(response.data)
+            } catch (err) {
+                console.error('Failed to fetch company details:', err)
+                setError('Failed to load company information')
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchCompanyDetails()
+    }, [])
+
+    if (loading) {
+        return (
+            <DashboardLayout>
+                <div className="flex items-center justify-center h-64">
+                    <p className="text-muted-foreground">Loading company details...</p>
+                </div>
+            </DashboardLayout>
+        )
+    }
+
+    if (error || !companyDetails) {
+        return (
+            <DashboardLayout>
+                <div className="flex items-center justify-center h-64">
+                    <p className="text-red-500">{error || 'Company details not found'}</p>
+                </div>
+            </DashboardLayout>
+        )
+    }
+
+    const { company, user } = companyDetails
+
     return (
-        <DashboardLayout>
+        <DashboardLayout user={{ email: user.email, name: user.email.split('@')[0] }}>
             <div className="space-y-6">
                 {/* Page Header */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -197,8 +241,8 @@ export default function CompanyDashboardPage() {
                     <CardHeader>
                         <div className="flex items-start justify-between">
                             <div>
-                                <CardTitle>TechCorp Solutions</CardTitle>
-                                <CardDescription>Software Development & AI Innovation</CardDescription>
+                                <CardTitle>{company.name}</CardTitle>
+                                <CardDescription>{company.industry}</CardDescription>
                             </div>
                             <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
                                 <Award className="h-6 w-6 text-primary" />
@@ -209,20 +253,19 @@ export default function CompanyDashboardPage() {
                         <div className="grid gap-4 md:grid-cols-3">
                             <div>
                                 <p className="text-xs text-muted-foreground">Location</p>
-                                <p className="text-sm font-medium">San Francisco, CA</p>
+                                <p className="text-sm font-medium">{company.address || 'Not specified'}</p>
                             </div>
                             <div>
                                 <p className="text-xs text-muted-foreground">Industry</p>
-                                <p className="text-sm font-medium">Technology & Software</p>
+                                <p className="text-sm font-medium">{company.industry}</p>
                             </div>
                             <div>
                                 <p className="text-xs text-muted-foreground">Established</p>
-                                <p className="text-sm font-medium">2015</p>
+                                <p className="text-sm font-medium">{company.founded}</p>
                             </div>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                            Discover and mentor the next generation of tech talent. We connect with emerging
-                            professionals and invest in their growth.
+                            {company.description}
                         </p>
                     </CardContent>
                 </Card>
@@ -326,7 +369,7 @@ export default function CompanyDashboardPage() {
                                     <QuickAction title="Applicants" icon={Users} href="/dashboard/company/applicants" />
                                     <QuickAction title="Team & Roles" icon={BarChart3} href="/dashboard/company/team" />
                                     <QuickAction title="Accumulations" icon={MessageSquare} href="/dashboard/company/accumulations" />
-                                    <QuickAction title="Settings" icon={Target} href="/dashboard/company/settings" />
+                                    <QuickAction title="Profile" icon={Target} href="/dashboard/company/profile" />
                                 </div>
                             </CardContent>
                         </Card>

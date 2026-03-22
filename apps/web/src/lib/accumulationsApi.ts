@@ -2,14 +2,9 @@ import { apiClient } from './apiClient';
 
 export type AccumSource = 'school' | 'company';
 export type AccumStatus = 'Active' | 'Closing Soon' | 'Ended';
-export type AccumType = 'Task' | 'Challenge' | 'Course' | 'Event';
+export type AccumType = 'Task' | 'Course' | 'Event';
 
 // Type-specific sub-document types
-export interface Challenge {
-  title: string;
-  description: string;
-}
-
 export interface Module {
   title: string;
   description: string;
@@ -59,13 +54,12 @@ export interface Accumulation {
   participants: number;
   description: string;
   skillTags: string[];
-  resourceLink?: string;
+  resourceLink: string;
   objectives: string[];
   inCharge: InCharge[];
   participantList: Participant[];
   grades: ParticipantGrade[];
   // type-specific
-  challenges?: { title: string; description: string }[];
   modules?: { title: string; description: string }[];
   agenda?: { time: string; activity: string }[];
   tasks?: { title: string; description: string }[];
@@ -79,20 +73,18 @@ export interface CreateAccumulationInput {
   courses: string[];
   deadline: string;
   duration: string;
-  points: number;
   description: string;
   skillTags?: string[];
-  resourceLink?: string;
+  resourceLink: string;
   objectives?: string[];
   inCharge?: { name: string; role: string; email: string }[];
-  challenges?: { title: string; description: string }[];
   modules?: { title: string; description: string }[];
   agenda?: { time: string; activity: string }[];
   tasks?: { title: string; description: string }[];
 }
 
 // Extended type for form usage with all fields initialized
-export interface CreateAccumulationFormData extends CreateAccumulationInput {
+export interface CreateAccumulationFormData extends Omit<CreateAccumulationInput, 'points'> {
   skillTags: string[];
   objectives: string[];
   inCharge: { name: string; role: string; email: string }[];

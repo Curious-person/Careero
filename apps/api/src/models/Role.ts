@@ -174,6 +174,7 @@ interface IRoleModel extends Model<IRole> {
       complexityMultiplier: number;
       totalAccumulationPoints: number;
       accumulationCount: number;
+      typeBreakdown: Record<string, number>;
     };
   }>;
 }
@@ -182,21 +183,23 @@ interface IRoleModel extends Model<IRole> {
  * Calculate role points based on skills and accumulations
  * Formula:
  *   Total Points = (Skill Points) + (Accumulation Points)
- *   
+ *
  *   Skill Points = Base Skill Value × Number of Skills × Complexity Multiplier
  *   - Base Skill Value: 50 points per skill
  *   - Complexity Multiplier: 1.0 + (0.1 × (skills.length - 1))
  *     (More skills = higher complexity = bonus multiplier)
- *   
- *   Accumulation Points = Sum of all linked accumulation points × 0.5
- *   - Accumulations contribute 50% of their point value to the role
- *   - This prevents accumulation points from dominating the calculation
- * 
+ *
+ *   Accumulation Points = Sum of accumulation points × 0.5
+ *   - Weight: 0.5 (50% of accumulation value)
+ *   - Accumulations contribute to role complexity based on their point value
+ *   - Note: Type multipliers are already factored into accumulation points
+ *
  * Example:
- *   Role with 5 skills and accumulations worth 200 points:
+ *   Role with 5 skills and accumulations:
+ *   - 1 Event (200 pts) + 1 Course (175 pts) = 375 total
  *   Skill Points = 50 × 5 × (1.0 + 0.1 × 4) = 50 × 5 × 1.4 = 350
- *   Accumulation Points = 200 × 0.5 = 100
- *   Total Points = 350 + 100 = 450
+ *   Accumulation Points = 375 × 0.5 = 187.5
+ *   Total Points = 350 + 187.5 = 537.5 ≈ 538
  */
 RoleSchema.statics.calculatePoints = async function(skills: string[], accumulationIds: string[]) {
   // Skill points calculation
@@ -206,11 +209,16 @@ RoleSchema.statics.calculatePoints = async function(skills: string[], accumulati
   const skillPoints = Math.round(BASE_SKILL_VALUE * skillCount * complexityMultiplier);
 
   // Accumulation points calculation
+  // Use accumulation points directly (type multipliers already factored in during accumulation creation)
   const accumulations = await this.db.model('Accumulation').find({
     _id: { $in: accumulationIds }
   });
-  
-  const totalAccumulationPoints = accumulations.reduce((sum, acc) => sum + (acc.points || 0), 0);
+
+  // Sum all accumulation points
+  const totalAccumulationPoints = accumulations.reduce((sum, acc) => {
+    return sum + (acc.points || 0);
+  }, 0);
+
   const ACCUMULATION_WEIGHT = 0.5;
   const accumulationPoints = Math.round(totalAccumulationPoints * ACCUMULATION_WEIGHT);
 
@@ -226,6 +234,10 @@ RoleSchema.statics.calculatePoints = async function(skills: string[], accumulati
       complexityMultiplier,
       totalAccumulationPoints,
       accumulationCount: accumulations.length,
+      typeBreakdown: accumulations.reduce((acc, curr) => {
+        acc[curr.type] = (acc[curr.type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
     },
   };
 };

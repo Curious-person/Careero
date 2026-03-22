@@ -8,18 +8,32 @@ const router = Router();
 router.use(authenticateToken);
 
 /**
+ * @route   GET /api/v1/company/details
+ * @desc    Get company details including profile and user info
+ * @access  Private (Company only)
+ */
+router.get('/details', companyProfileController.getCompanyDetails);
+
+/**
+ * @route   PATCH /api/v1/company/profile
+ * @desc    Update company profile (partial update with changed fields only)
+ * @access  Private (Company only)
+ */
+router.patch('/profile', companyProfileController.updateCompanyProfile);
+
+/**
  * @route   GET /api/v1/company/profile
  * @desc    Get company profile for authenticated user
  * @access  Private (Company only)
  */
-router.get('/', companyProfileController.getCompanyProfile);
+router.get('/profile', companyProfileController.getCompanyProfile);
 
 /**
  * @route   PUT /api/v1/company/profile
  * @desc    Create or update company profile
  * @access  Private (Company only)
  */
-router.put('/', companyProfileController.upsertCompanyProfile);
+router.put('/profile', companyProfileController.upsertCompanyProfile);
 
 /**
  * @route   PATCH /api/v1/company/profile/logo

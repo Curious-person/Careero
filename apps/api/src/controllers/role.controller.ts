@@ -113,8 +113,14 @@ export const createRole = async (req: AuthRequest, res: Response, next: NextFunc
     console.log('   - Skill Count:', breakdown.skillCount);
     console.log('   - Complexity Multiplier: ×' + breakdown.complexityMultiplier.toFixed(2));
     console.log('📅 Accumulation Points:', breakdown.accumulationPoints);
-    console.log('   - Total Accumulation Points:', breakdown.totalAccumulationPoints);
+    console.log('   - Weighted Accumulation Points:', breakdown.totalAccumulationPoints);
     console.log('   - Weight Applied: ×0.5 (50%)');
+    console.log('   - Accumulation Count:', breakdown.accumulationCount);
+    if (breakdown.typeBreakdown) {
+      console.log('   - Types:', Object.entries(breakdown.typeBreakdown)
+        .map(([type, count]) => `${type} (${count})`)
+        .join(', '));
+    }
     console.log('🎯 TOTAL POINTS:', totalPoints);
     console.log('═══════════════════════════════════════════════════════════');
 

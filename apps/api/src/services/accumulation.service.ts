@@ -1,4 +1,5 @@
 import { Accumulation, IParticipantGrade, AccumSource } from '../models/Accumulation';
+import { Types } from 'mongoose';
 
 /**
  * Get all accumulations (optionally filtered by source)
@@ -18,8 +19,12 @@ export const getAccumulationById = async (id: string) => {
 /**
  * Get accumulations by creator type (school or company)
  */
-export const getAccumulationsByCreator = async (createdBy: 'school' | 'company') => {
-  return Accumulation.find({ createdBy }).lean();
+export const getAccumulationsByCreator = async (createdBy: 'school' | 'company', companyProfileId?: Types.ObjectId) => {
+  const query: any = { createdBy };
+  if (createdBy === 'company' && companyProfileId) {
+    query.company = companyProfileId;
+  }
+  return Accumulation.find(query).lean();
 };
 
 const TAG_TO_FIELD: Record<string, string> = {
@@ -36,19 +41,18 @@ const TAG_TO_FIELD: Record<string, string> = {
 export const createAccumulation = async (data: {
   title: string;
   type: string;
-  source: 'school' | 'company';
+  source: string; // 'school' or company name
   createdBy: 'school' | 'company';
+  company?: Types.ObjectId; // Company profile reference (required if createdBy is 'company')
   field?: string;
   courses: string[];
   deadline: string;
   duration: string;
-  points: number;
   description: string;
   skillTags?: string[];
-  resourceLink?: string;
+  resourceLink: string;
   objectives?: string[];
   inCharge?: { name: string; role: string; email: string }[];
-  challenges?: { title: string; description: string }[];
   modules?: { title: string; description: string }[];
   agenda?: { time: string; activity: string }[];
   tasks?: { title: string; description: string }[];
@@ -60,6 +64,14 @@ export const createAccumulation = async (data: {
     return `#${normalized}`
   }).filter(Boolean)
 
+  // Validate URL format for resourceLink
+  if (!data.resourceLink) throw new Error('Resource link is required')
+  try {
+    new URL(data.resourceLink)
+  } catch {
+    throw new Error('Resource link must be a valid URL')
+  }
+
   if (!title) throw new Error('Title is required')
   if (title.length > 100) throw new Error('Title must be at most 100 characters')
   if (!description) throw new Error('Description is required')
@@ -67,12 +79,8 @@ export const createAccumulation = async (data: {
   if (!data.courses?.length) throw new Error('At least one course is required')
   if (!data.deadline) throw new Error('Deadline is required')
   if (!data.duration?.trim()) throw new Error('Duration is required')
-  if (!data.points || Number(data.points) <= 0) throw new Error('Points must be a positive value')
 
-  if (data.type === 'Challenge') {
-    if (!data.challenges?.length) throw new Error('At least one challenge is required')
-    if (data.challenges.some(item => !item.title?.trim() || !item.description?.trim())) throw new Error('Each challenge requires a title and description')
-  }
+  // Type-specific validation
   if (data.type === 'Course') {
     if (!data.modules?.length) throw new Error('At least one module is required')
     if (data.modules.some(item => !item.title?.trim() || !item.description?.trim())) throw new Error('Each module requires a title and description')
@@ -89,12 +97,28 @@ export const createAccumulation = async (data: {
   const firstTag = skillTags[0]
   const field = data.field || (firstTag ? TAG_TO_FIELD[firstTag] ?? firstTag : 'General')
 
+  // Calculate points based on type (type multiplier applied once at creation)
+  // Type multipliers: Event (2.0×) > Course (1.75×) > Task (1.0×)
+  const TYPE_MULTIPLIERS: Record<string, number> = {
+    'Event': 2.0,      // Highest: live, time-bound, high engagement
+    'Course': 1.75,    // Second highest: structured learning path
+    'Task': 1.0,       // Base: individual assignments
+  };
+  
+  // Base points for all accumulations: 100
+  // Points = Base × Type Multiplier
+  const BASE_POINTS = 100;
+  const typeMultiplier = TYPE_MULTIPLIERS[data.type] || 1.0;
+  const calculatedPoints = Math.round(BASE_POINTS * typeMultiplier);
+
   return Accumulation.create({
     ...data,
     title,
     description,
     skillTags,
     field,
+    resourceLink: data.resourceLink,
+    points: calculatedPoints,
     status: 'Active',
     participants: 0,
     participantList: [],
@@ -110,12 +134,12 @@ export const createAccumulation = async (data: {
 export const endAccumulation = async (id: string, source: 'school' | 'company') => {
   const accum = await Accumulation.findById(id);
   if (!accum) throw new Error('Accumulation not found');
-  
-  // Verify ownership
-  if (accum.source !== source) {
+
+  // Verify ownership using createdBy field
+  if (accum.createdBy !== source) {
     throw new Error(`Only ${source} accumulations can be ended by ${source}`);
   }
-  
+
   if (accum.status === 'Ended') throw new Error('Accumulation already ended');
   accum.status = 'Ended';
   return accum.save();
@@ -150,11 +174,11 @@ export const gradeParticipant = async (
 export const deleteAccumulation = async (id: string, source: 'school' | 'company') => {
   const accum = await Accumulation.findByIdAndDelete(id);
   if (!accum) throw new Error('Accumulation not found');
-  
-  // Verify ownership
-  if (accum.source !== source) {
+
+  // Verify ownership using createdBy field
+  if (accum.createdBy !== source) {
     throw new Error(`Only ${source} accumulations can be deleted by ${source}`);
   }
-  
+
   return accum;
 };

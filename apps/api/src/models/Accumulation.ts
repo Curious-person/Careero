@@ -1,8 +1,8 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export type AccumSource = 'school' | 'company';
+export type AccumSource = 'school' | string; // 'school' or company name
 export type AccumStatus = 'Active' | 'Closing Soon' | 'Ended';
-export type AccumType = 'Task' | 'Challenge' | 'Course' | 'Event';
+export type AccumType = 'Task' | 'Course' | 'Event';
 
 export interface IParticipant {
   name: string;
@@ -28,22 +28,22 @@ export interface IAccumulation extends Document {
   type: AccumType;
   source: AccumSource;
   createdBy: string;
+  company?: mongoose.Types.ObjectId; // Reference to CompanyProfile (required if createdBy is 'company')
   field: string;
   courses: string[];
   deadline: string;
   duration: string;
-  points: number;
+  points: number; // Auto-calculated based on type
   status: AccumStatus;
   participants: number;
   description: string;
   skillTags: string[];
-  resourceLink?: string;
+  resourceLink: string;
   objectives: string[];
   inCharge: IInCharge[];
   participantList: IParticipant[];
   grades: IParticipantGrade[];
   // type-specific
-  challenges?: { title: string; description: string }[];
   modules?: { title: string; description: string }[];
   agenda?: { time: string; activity: string }[];
   tasks?: { title: string; description: string }[];
@@ -71,9 +71,14 @@ const InChargeSchema = new Schema<IInCharge>({
 const AccumulationSchema = new Schema<IAccumulation>(
   {
     title: { type: String, required: true },
-    type: { type: String, enum: ['Task', 'Challenge', 'Course', 'Event'], required: true },
-    source: { type: String, enum: ['school', 'company'], required: true },
+    type: { type: String, enum: ['Task', 'Course', 'Event'], required: true },
+    source: { type: String, required: true }, // 'school' or company name
     createdBy: { type: String, required: true },
+    company: {
+      type: Schema.Types.ObjectId,
+      ref: 'CompanyProfile',
+      required: function() { return this.createdBy === 'company'; }
+    },
     field: { type: String, default: '' },
     courses: [{ type: String }],
     deadline: { type: String, required: true },
@@ -83,12 +88,11 @@ const AccumulationSchema = new Schema<IAccumulation>(
     participants: { type: Number, default: 0 },
     description: { type: String, default: '' },
     skillTags: [{ type: String }],
-    resourceLink: { type: String },
+    resourceLink: { type: String, required: true },
     objectives: [{ type: String }],
     inCharge: [InChargeSchema],
     participantList: [ParticipantSchema],
     grades: [ParticipantGradeSchema],
-    challenges: [{ title: String, description: String }],
     modules: [{ title: String, description: String }],
     agenda: [{ time: String, activity: String }],
     tasks: [{ title: String, description: String }],

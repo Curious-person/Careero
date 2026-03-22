@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
+import { CompanyProfile } from '../models/CompanyProfile';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -45,4 +46,41 @@ export const authorizeRoles = (...allowedRoles: string[]) => {
 
     next();
   };
+};
+
+/**
+ * Helper function to get company profile from JWT token
+ * @param req - AuthRequest with user info from JWT
+ * @returns CompanyProfile or null if not found
+ */
+export const getCompanyProfileFromJwt = async (req: AuthRequest) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return null;
+  }
+
+  const companyProfile = await CompanyProfile.findOne({ user: userId });
+  return companyProfile;
+};
+
+/**
+ * Helper function to require company authentication
+ * @param req - AuthRequest with user info from JWT
+ * @param res - Response
+ * @returns CompanyProfile or sends 401/404 error response
+ */
+export const requireCompanyProfile = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ message: 'Unauthorized: User ID required' });
+    return null;
+  }
+
+  const companyProfile = await CompanyProfile.findOne({ user: userId });
+  if (!companyProfile) {
+    res.status(404).json({ message: 'Company profile not found. Please complete your company profile first.' });
+    return null;
+  }
+
+  return companyProfile;
 };

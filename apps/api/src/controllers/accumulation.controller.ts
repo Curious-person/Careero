@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { AuthRequest } from '../middlewares/auth.middleware';
+import { AuthRequest, requireCompanyProfile } from '../middlewares/auth.middleware';
+import { Accumulation } from '../models/Accumulation';
 import * as accumulationService from '../services/accumulation.service';
 
 /**
@@ -61,6 +62,18 @@ export const createSchoolAccumulation = async (req: AuthRequest, res: Response, 
       source: 'school',
       createdBy: 'school',
     });
+
+    // Log points calculation
+    console.log('╔══════════════════════════════════════════════════════════╗');
+    console.log('║              ACCUMULATION POINTS CALCULATED              ║');
+    console.log('╚══════════════════════════════════════════════════════════╝');
+    console.log('📋 Title:', accum.title);
+    console.log('📁 Type:', accum.type);
+    console.log('🎯 Points:', accum.points);
+    console.log('   - Base: 100 points');
+    console.log('   - Type Multiplier:', accum.type === 'Event' ? '2.0× (highest)' : accum.type === 'Course' ? '1.75× (second)' : '1.0× (base)');
+    console.log('═══════════════════════════════════════════════════════════');
+
     res.status(201).json({ message: 'Accumulation created successfully', data: accum });
   } catch (error) {
     next(error);
@@ -161,16 +174,28 @@ export const getMySchoolAccumulations = async (req: AuthRequest, res: Response, 
  */
 export const createCompanyAccumulation = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized: User ID not found' });
-    }
+    // Get company profile from JWT - requires company profile to exist
+    const companyProfile = await requireCompanyProfile(req, res);
+    if (!companyProfile) return;
 
     const accum = await accumulationService.createAccumulation({
       ...req.body,
-      source: 'company',
-      createdBy: 'company', // Hardcoded as per requirement
+      source: companyProfile.name, // Use company name instead of generic 'company'
+      createdBy: 'company',
+      company: companyProfile._id, // Reference to the company profile
     });
+
+    // Log points calculation
+    console.log('╔══════════════════════════════════════════════════════════╗');
+    console.log('║              ACCUMULATION POINTS CALCULATED              ║');
+    console.log('╚══════════════════════════════════════════════════════════╝');
+    console.log('📋 Title:', accum.title);
+    console.log('📁 Type:', accum.type);
+    console.log('🎯 Points:', accum.points);
+    console.log('   - Base: 100 points');
+    console.log('   - Type Multiplier:', accum.type === 'Event' ? '2.0× (highest)' : accum.type === 'Course' ? '1.75× (second)' : '1.0× (base)');
+    console.log('═══════════════════════════════════════════════════════════');
+
     res.status(201).json({ message: 'Accumulation created successfully', data: accum });
   } catch (error) {
     next(error);
@@ -184,13 +209,21 @@ export const createCompanyAccumulation = async (req: AuthRequest, res: Response,
  */
 export const endCompanyAccumulation = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized: User ID not found' });
+    // Get company profile from JWT - requires company profile to exist
+    const companyProfile = await requireCompanyProfile(req, res);
+    if (!companyProfile) return;
+
+    // Verify the accumulation belongs to this company
+    const accum = await Accumulation.findById(req.params.id);
+    if (!accum) {
+      return res.status(404).json({ message: 'Accumulation not found' });
+    }
+    if (accum.createdBy !== 'company' || !accum.company?.equals(companyProfile._id)) {
+      return res.status(403).json({ message: 'You can only end accumulations created by your company' });
     }
 
-    const accum = await accumulationService.endAccumulation(req.params.id, 'company');
-    res.json({ message: 'Accumulation ended successfully', data: accum });
+    const updatedAccum = await accumulationService.endAccumulation(req.params.id, 'company');
+    res.json({ message: 'Accumulation ended successfully', data: updatedAccum });
   } catch (error) {
     next(error);
   }
@@ -204,17 +237,26 @@ export const endCompanyAccumulation = async (req: AuthRequest, res: Response, ne
 export const gradeCompanyParticipant = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { participantName, grade, skillRatings, feedback } = req.body;
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized: User ID not found' });
+
+    // Get company profile from JWT - requires company profile to exist
+    const companyProfile = await requireCompanyProfile(req, res);
+    if (!companyProfile) return;
+
+    // Verify the accumulation belongs to this company
+    const accum = await Accumulation.findById(req.params.id);
+    if (!accum) {
+      return res.status(404).json({ message: 'Accumulation not found' });
+    }
+    if (accum.createdBy !== 'company' || !accum.company?.equals(companyProfile._id)) {
+      return res.status(403).json({ message: 'You can only grade participants in accumulations created by your company' });
     }
 
-    const accum = await accumulationService.gradeParticipant(req.params.id, participantName, {
+    const updatedAccum = await accumulationService.gradeParticipant(req.params.id, participantName, {
       grade,
       skillRatings,
       feedback,
     });
-    res.json({ message: 'Participant graded successfully', data: accum });
+    res.json({ message: 'Participant graded successfully', data: updatedAccum });
   } catch (error) {
     next(error);
   }
@@ -227,9 +269,17 @@ export const gradeCompanyParticipant = async (req: AuthRequest, res: Response, n
  */
 export const deleteCompanyAccumulation = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized: User ID not found' });
+    // Get company profile from JWT - requires company profile to exist
+    const companyProfile = await requireCompanyProfile(req, res);
+    if (!companyProfile) return;
+
+    // Verify the accumulation belongs to this company
+    const accum = await Accumulation.findById(req.params.id);
+    if (!accum) {
+      return res.status(404).json({ message: 'Accumulation not found' });
+    }
+    if (accum.createdBy !== 'company' || !accum.company?.equals(companyProfile._id)) {
+      return res.status(403).json({ message: 'You can only delete accumulations created by your company' });
     }
 
     await accumulationService.deleteAccumulation(req.params.id, 'company');
@@ -248,7 +298,7 @@ export const getCompanyAccumulations = async (req: AuthRequest, res: Response, n
   try {
     const userId = req.user?.id;
     console.log('getCompanyAccumulations - User ID:', userId);
-    
+
     if (!userId) {
       return res.status(401).json({ message: 'Unauthorized: User ID not found' });
     }
@@ -273,12 +323,11 @@ export const getCompanyAccumulations = async (req: AuthRequest, res: Response, n
  */
 export const getMyCompanyAccumulations = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized: User ID not found' });
-    }
+    // Get company profile from JWT - requires company profile to exist
+    const companyProfile = await requireCompanyProfile(req, res);
+    if (!companyProfile) return;
 
-    const data = await accumulationService.getAccumulationsByCreator('company');
+    const data = await accumulationService.getAccumulationsByCreator('company', companyProfile._id);
     res.json({ message: 'Company accumulations retrieved successfully', data });
   } catch (error) {
     next(error);

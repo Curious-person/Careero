@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Role Points System automatically calculates a point value for each job role based on the **skills required** and the **linked accumulations**. This provides a standardized way to measure the complexity and value of each role.
+The Role Points System automatically calculates a point value for each job role based on the **skills required** and the **linked accumulations** (with type-based multipliers). This provides a standardized way to measure the complexity and value of each role.
 
 ---
 
@@ -51,7 +51,7 @@ Skill Points = Base Skill Value × Number of Skills × Complexity Multiplier
 
 ### 2. Accumulation Points
 
-Accumulation points incorporate the point value of linked accumulations (training programs, challenges, courses, events) into the role's total.
+Accumulation points incorporate the point value of linked accumulations into the role's total.
 
 **Formula:**
 ```
@@ -62,21 +62,29 @@ Accumulation Points = Sum of Linked Accumulation Points × 0.5
 - **Sum of Linked Accumulation Points**: Total points from all selected accumulations
 - **Weight**: `0.5` (50% of accumulation value)
 
+**Accumulation Type Points (set during accumulation creation):**
+
+| Type | Base Points | Multiplier | Final Points |
+|------|-------------|------------|--------------|
+| **Event** | 100 | **2.0×** | **200 points** |
+| **Course** | 100 | **1.75×** | **175 points** |
+| **Task** | 100 | **1.0×** | **100 points** |
+
 **Rationale:**
-- Accumulations contribute to role complexity
+- Type multipliers are applied once during accumulation creation
 - 50% weight prevents accumulation points from dominating
-- Ensures skills remain the primary factor
+- Ensures skills remain the primary factor (roughly 60-75% of total)
 - Recognizes training/development investment
 
 ---
 
 ## Calculation Examples
 
-### Example 1: Entry-Level Role
+### Example 1: Entry-Level Role (Tasks Only)
 
 **Inputs:**
 - Skills: 3 skills (JavaScript, React, Node.js)
-- Accumulations: 100 points total
+- Accumulations: 1 Task (100 points)
 
 **Calculation:**
 ```
@@ -92,11 +100,14 @@ Total Points = 180 + 50 = 230 points
 
 ---
 
-### Example 2: Mid-Level Role
+### Example 2: Mid-Level Role (Mixed Types)
 
 **Inputs:**
 - Skills: 5 skills (Python, Django, PostgreSQL, Docker, AWS)
-- Accumulations: 200 points total
+- Accumulations:
+  - 1 Course (175 points)
+  - 1 Task (100 points)
+  - Total = 275 points
 
 **Calculation:**
 ```
@@ -104,19 +115,23 @@ Skill Points = 50 × 5 × (1.0 + 0.1 × 4)
              = 50 × 5 × 1.4
              = 350 points
 
-Accumulation Points = 200 × 0.5
-                    = 100 points
+Accumulation Points = 275 × 0.5
+                    = 137.5 ≈ 138 points
 
-Total Points = 350 + 100 = 450 points
+Total Points = 350 + 138 = 488 points
 ```
 
 ---
 
-### Example 3: Senior/Expert Role
+### Example 3: Senior/Expert Role (With Event)
 
 **Inputs:**
 - Skills: 10 skills (JavaScript, TypeScript, React, Next.js, Node.js, PostgreSQL, MongoDB, AWS, Docker, Kubernetes)
-- Accumulations: 400 points total
+- Accumulations:
+  - 1 Event (200 points)
+  - 1 Course (175 points)
+  - 1 Task (100 points)
+  - Total = 475 points
 
 **Calculation:**
 ```
@@ -124,22 +139,34 @@ Skill Points = 50 × 10 × (1.0 + 0.1 × 9)
              = 50 × 10 × 1.9
              = 950 points
 
-Accumulation Points = 400 × 0.5
-                    = 200 points
+Accumulation Points = 475 × 0.5
+                    = 237.5 ≈ 238 points
 
-Total Points = 950 + 200 = 1,150 points
+Total Points = 950 + 238 = 1,188 points
 ```
+
+---
+
+### Example 4: Type Impact Comparison
+
+**Same accumulation, different types:**
+
+| Type | Points | After 50% Weight |
+|------|--------|------------------|
+| Task | 100 | 50 pts |
+| Course | 175 | 87.5 pts |
+| Event | 200 | 100 pts |
 
 ---
 
 ## Points Range Guide
 
-| Role Level | Typical Points | Skills | Accumulation Points |
-|------------|----------------|--------|---------------------|
-| Entry-Level | 200-350 | 2-4 | 50-100 |
-| Mid-Level | 350-600 | 5-7 | 100-200 |
-| Senior-Level | 600-900 | 7-9 | 200-350 |
-| Expert/Lead | 900+ | 10 | 350+ |
+| Role Level | Typical Points | Skills | Example Accumulations |
+|------------|----------------|--------|----------------------|
+| Entry-Level | 200-400 | 2-4 | 1-2 Tasks |
+| Mid-Level | 400-700 | 5-7 | 1 Course + 1 Task |
+| Senior-Level | 700-1100 | 7-9 | 1 Event + 1-2 Courses |
+| Expert/Lead | 1100+ | 10 | 1 Event + 2 Courses + Tasks |
 
 ---
 
@@ -172,11 +199,16 @@ RoleSchema.statics.calculatePoints = async function(skills: string[], accumulati
   const skillPoints = Math.round(BASE_SKILL_VALUE * skillCount * complexityMultiplier);
 
   // Accumulation points calculation
+  // Type multipliers already applied during accumulation creation
   const accumulations = await this.db.model('Accumulation').find({
     _id: { $in: accumulationIds }
   });
-  
-  const totalAccumulationPoints = accumulations.reduce((sum, acc) => sum + (acc.points || 0), 0);
+
+  // Sum all accumulation points
+  const totalAccumulationPoints = accumulations.reduce((sum, acc) => {
+    return sum + (acc.points || 0);
+  }, 0);
+
   const ACCUMULATION_WEIGHT = 0.5;
   const accumulationPoints = Math.round(totalAccumulationPoints * ACCUMULATION_WEIGHT);
 
@@ -192,6 +224,10 @@ RoleSchema.statics.calculatePoints = async function(skills: string[], accumulati
       complexityMultiplier,
       totalAccumulationPoints,
       accumulationCount: accumulations.length,
+      typeBreakdown: accumulations.reduce((acc, curr) => {
+        acc[curr.type] = (acc[curr.type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
     },
   };
 };
@@ -224,10 +260,12 @@ The calculation is logged for debugging:
    - Base Value: 50 points per skill
    - Skill Count: 5
    - Complexity Multiplier: ×1.40
-📅 Accumulation Points: 100
-   - Total Accumulation Points: 200
+📅 Accumulation Points: 138
+   - Total Accumulation Points: 275
    - Weight Applied: ×0.5 (50%)
-🎯 TOTAL POINTS: 450
+   - Accumulation Count: 2
+   - Types: Course (1), Task (1)
+🎯 TOTAL POINTS: 488
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -267,9 +305,19 @@ When retrieving a role, the points field is included:
 - Encourages comprehensive role definitions
 - Prevents gaming the system with single high-value skills
 
+### Why Type Multipliers for Accumulations?
+
+Different learning formats have different levels of rigor and engagement:
+
+- **Events (2.0× = 200 pts)**: Live, time-bound activities with networking, Q&A, and real-time engagement
+- **Courses (1.75× = 175 pts)**: Structured learning paths with multiple modules, assessments, and progressive skill building
+- **Tasks (1.0× = 100 pts)**: Individual assignments that verify basic competency
+
+Type multipliers are applied **once during accumulation creation**, not during role calculation. This simplifies the role points formula and ensures consistent accumulation values across the system.
+
 ### Why 50% Weight for Accumulations?
 
-- Keeps skills as the primary factor (roughly 70-80% of total)
+- Keeps skills as the primary factor (roughly 60-75% of total)
 - Acknowledges training/development investment
 - Prevents accumulation points from dominating the calculation
 - Maintains balance between skill requirements and training programs

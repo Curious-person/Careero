@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button"
 import { logoutSession, apiClient } from "@/lib/apiClient"
 import {
   LayoutDashboard,
-  Settings,
   Users,
   FileText,
   Menu,
@@ -13,11 +12,17 @@ import {
   Bell,
   ChevronLeft,
   ChevronRight,
-  Briefcase
+  Briefcase,
+  Building,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
+
+interface UserInfo {
+  email: string
+  name?: string
+}
 
 interface NavItem {
   name: string
@@ -30,9 +35,10 @@ interface NavItem {
 interface DashboardLayoutProps {
   children: React.ReactNode
   navigation?: NavItem[]
+  user?: UserInfo | null
 }
 
-export default function DashboardLayout({ children, navigation: navProp }: DashboardLayoutProps) {
+export default function DashboardLayout({ children, navigation: navProp, user }: DashboardLayoutProps) {
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -53,10 +59,25 @@ export default function DashboardLayout({ children, navigation: navProp }: Dashb
     { name: "Applicants", href: "/dashboard/company/applicants", icon: Briefcase },
     { name: "Team & Roles", href: "/dashboard/company/team", icon: Users },
     { name: "Accumulations", href: "/dashboard/company/accumulations", icon: FileText },
-    { name: "Settings", href: "/dashboard/company/settings", icon: Settings },
+    { name: "Company Profile", href: "/dashboard/company/profile", icon: Building },
   ]
 
   const navigation = navProp ?? defaultNavigation
+
+  // Get user initials for avatar
+  const getUserInitials = (name?: string, email?: string) => {
+    if (name) {
+      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    }
+    if (email) {
+      return email.split('@')[0].slice(0, 2).toUpperCase()
+    }
+    return 'JD'
+  }
+
+  const displayName = user?.name || user?.email?.split('@')[0] || 'User'
+  const displayEmail = user?.email || 'user@example.com'
+  const userInitials = getUserInitials(user?.name, user?.email)
 
   return (
     <div className="min-h-screen bg-muted/50">
@@ -139,12 +160,12 @@ export default function DashboardLayout({ children, navigation: navProp }: Dashb
           <div className="p-4 border-t">
             <div className={`flex items-center gap-3 mb-4 ${sidebarCollapsed ? "justify-center" : ""}`}>
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <span className="text-sm font-medium text-primary">{initials}</span>
+                <span className="text-sm font-medium text-primary">{currentUser ? initials : getUserInitials(user?.name, user?.email)}</span>
               </div>
               {!sidebarCollapsed && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{currentUser?.displayName ?? '...'}</p>
-                  <p className="text-xs text-muted-foreground truncate">{currentUser?.email ?? ''}</p>
+                  <p className="text-sm font-medium truncate">{currentUser?.displayName ?? displayName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{currentUser?.email ?? displayEmail}</p>
                 </div>
               )}
             </div>

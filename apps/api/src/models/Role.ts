@@ -35,10 +35,13 @@ export interface IRole extends Document {
   description: string;
   skills: string[];
   accumulationIds: string[];
+  courses: string[];
+  minimumReadinessScore: number;
   points: number; // Calculated points based on skills and accumulations
   postedDate: Date;
   createdAt: Date;
   updatedAt: Date;
+  appliedStudents?: mongoose.Types.ObjectId[];
 }
 
 const RoleSchema: Schema = new Schema(
@@ -85,6 +88,10 @@ const RoleSchema: Schema = new Schema(
       default: 0,
       min: 0,
     },
+    appliedStudents: [{
+      type: Schema.Types.ObjectId,
+      ref: 'User'
+    }],
     accepted: {
       type: Number,
       default: 0,
@@ -129,6 +136,16 @@ const RoleSchema: Schema = new Schema(
         validator: (v: string[]) => v.length >= 1,
         message: 'At least one accumulation ID is required',
       },
+    },
+    courses: {
+      type: [String],
+      default: [],
+    },
+    minimumReadinessScore: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
     },
     points: {
       type: Number,

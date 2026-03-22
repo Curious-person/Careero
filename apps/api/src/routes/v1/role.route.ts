@@ -13,8 +13,14 @@ router.get('/stats', roleController.getRoleStats);
 // GET /api/v1/roles - Get all roles for the company
 router.get('/', roleController.getRoles);
 
+// GET /api/v1/roles/student/matches - Get student internship offers matched by Careero
+router.get('/student/matches', roleController.getStudentMatches);
+
 // GET /api/v1/roles/:id - Get a specific role by ID
 router.get('/:id', roleController.getRoleById);
+
+// POST /api/v1/roles/:id/apply - Apply for a role
+router.post('/:id/apply', roleController.applyForRole);
 
 // POST /api/v1/roles - Create a new role
 router.post('/', roleController.createRole);

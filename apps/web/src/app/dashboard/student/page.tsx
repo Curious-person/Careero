@@ -23,6 +23,11 @@ export default function DashboardPage() {
     inProgressItems: [], 
     completedItems: [] 
   })
+  const [offersStats, setOffersStats] = useState<{ unlockedCount: number; appliedCount: number; topMatches: any[] }>({ 
+    unlockedCount: 0, 
+    appliedCount: 0, 
+    topMatches: [] 
+  })
   const [accumTab, setAccumTab] = useState<'active' | 'done'>('active')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -30,12 +35,27 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [profileRes, accumRes] = await Promise.all([
+        const [profileRes, accumRes, rolesRes] = await Promise.all([
           apiClient.get('/profile/me'),
           apiClient.get('/accumulations/student/available').catch(() => ({ data: { data: [] } })),
+          apiClient.get('/roles/student/matches').catch(() => ({ data: { data: [] } }))
         ])
         const prof = profileRes.data.data
         setProfile(prof)
+
+        // Offer stats derivation
+        const studentId = prof?.user || prof?._id || prof?.id;
+        const allOffers = rolesRes.data.data || [];
+        const appliedOffersIds = allOffers
+          .filter((m: any) => (m.role.appliedStudents || []).map((id: any) => id?.toString()).includes(studentId?.toString()))
+          .map((m: any) => m.role._id);
+        const eligibleOffers = allOffers.filter((o: any) => o.careero?.isEligible);
+        
+        setOffersStats({
+          unlockedCount: eligibleOffers.length,
+          appliedCount: appliedOffersIds.length,
+          topMatches: eligibleOffers.slice(0, 3)
+        })
 
         // Derive counts using the student's name
         const studentName = `${prof?.basicInfo?.firstName} ${prof?.basicInfo?.lastName}`.trim()
@@ -137,13 +157,13 @@ export default function DashboardPage() {
           />
           <StatCard
             title="Unlocked Offers"
-            value="24"
-            description="Based on Match Score"
+            value={offersStats.unlockedCount.toString()}
+            description="Fully eligible matches"
             icon={Briefcase}
             iconColor="text-indigo-600"
             iconBg="bg-indigo-100"
-            trend="5 new matches"
-            trendUp={true}
+            trend={offersStats.appliedCount > 0 ? `${offersStats.appliedCount} applied` : 'None applied yet'}
+            trendUp={offersStats.appliedCount > 0}
           />
           <StatCard
             title="Active Accumulations"
@@ -291,24 +311,22 @@ export default function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col gap-4">
-              <OfferItem
-                role="Cybersecurity Intern"
-                company="TechCorp Solutions"
-                location="San Francisco, CA"
-                score={94}
-              />
-              <OfferItem
-                role="Junior Full-Stack Engineer"
-                company="Pathly Design Labs"
-                location="Remote"
-                score={88}
-              />
-              <OfferItem
-                role="Data Analyst Fellow"
-                company="Global Finance Analytics"
-                location="New York, NY"
-                score={82}
-              />
+              {offersStats.topMatches.length > 0 ? (
+                offersStats.topMatches.map((item: any) => (
+                  <OfferItem
+                    key={item.role._id}
+                    role={item.role.title}
+                    company={item.role.company?.companyName || 'Company'}
+                    location={item.role.location}
+                    score={item.careero.matchScore}
+                  />
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center text-gray-400">
+                  <Briefcase className="w-8 h-8 opacity-20 mb-2" />
+                  <p className="text-xs font-medium italic">No unlocked matches yet</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

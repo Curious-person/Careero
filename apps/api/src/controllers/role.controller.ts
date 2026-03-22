@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { Role, RoleType, RoleStatus, SalaryPeriod } from '../models/Role';
 import { Accumulation } from '../models/Accumulation';
+import { StudentProfile } from '../models/StudentProfile';
+import { evaluateCandidate } from '../services/careero.service';
 
 interface AuthRequest extends Request {
   user?: {
@@ -292,6 +294,121 @@ export const getRoleStats = async (req: AuthRequest, res: Response, next: NextFu
         acceptanceRate,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/v1/roles/student/matches
+ * Fetches matching internship offers for a student using the Careero Engine
+ */
+export const getStudentMatches = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const studentId = req.user?.id;
+    if (!studentId) {
+      return res.status(401).json({ message: 'Unauthorized: Student ID required' });
+    }
+
+    // 1. Get Student Profile
+    const profile = await StudentProfile.findOne({ user: studentId }).lean();
+    if (!profile) {
+      return res.status(404).json({ message: 'Profile not found. Please complete onboarding.' });
+    }
+
+    // 2. Extract completed events for the student
+    const studentName = `${profile.basicInfo?.firstName || ''} ${profile.basicInfo?.lastName || ''}`.trim();
+    // We find accumulations where this exact student name is marked as Completed
+    const completedAccumulations = await Accumulation.find({
+      'participantList': {
+        $elemMatch: { name: studentName, status: 'Completed' }
+      }
+    }).lean();
+    
+    const completedEventIds = completedAccumulations.map(acc => acc._id.toString());
+
+    // 3. Query Target Roles 
+    // Optimization: Filter at database level by role status and matching course.
+    const course = profile.basicInfo?.course;
+    const rolesQuery: any = { status: RoleStatus.OPEN };
+    
+    if (course) {
+      rolesQuery.$or = [
+        { courses: { $exists: false } },
+        { courses: { $size: 0 } },
+        { courses: course }
+      ];
+    }
+
+    // Populate company to get display details (using User model assumed reference for company)
+    const openRoles = await Role.find(rolesQuery).populate('company', 'email').lean();
+
+    // 4. Run Careero Match Engine
+    const matches = [];
+    for (const role of openRoles) {
+      const evaluation = await evaluateCandidate(profile as any, completedEventIds, role as any);
+      
+      // Fetch the actual required events to show the student what they need
+      const requiredEvents = await Accumulation.find({
+        _id: { $in: role.accumulationIds || [] }
+      }).select('_id title type points').lean();
+
+      matches.push({
+        role: {
+          ...role,
+          requiredEvents
+        },
+        careero: evaluation
+      });
+    }
+
+    // 5. Rank Candidates based on computed Match Score
+    matches.sort((a, b) => b.careero.matchScore - a.careero.matchScore);
+
+    res.json({
+      message: 'Careero Matches Evaluated',
+      data: matches
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const applyForRole = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const studentId = req.user?.id;
+
+    if (!studentId) {
+      return res.status(401).json({ message: 'Unauthorized: Student ID required' });
+    }
+
+    const role = await Role.findById(id);
+
+    if (!role) {
+      return res.status(404).json({ message: 'Role not found' });
+    }
+
+    if (role.status !== RoleStatus.OPEN) {
+      return res.status(400).json({ message: 'Role is no longer open for applications' });
+    }
+
+    const hasApplied = role.appliedStudents?.map(uid => uid.toString()).includes(studentId);
+
+    if (hasApplied) {
+      return res.status(400).json({ message: 'You have already applied for this role' });
+    }
+
+    if (!role.appliedStudents) {
+      role.appliedStudents = [];
+    }
+
+    role.appliedStudents.push(studentId as any);
+    role.applicants += 1;
+    await role.save();
+
+    res.json({ message: 'Application submitted successfully', role });
   } catch (error) {
     next(error);
   }

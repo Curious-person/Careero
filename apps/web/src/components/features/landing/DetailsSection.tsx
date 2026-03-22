@@ -1,7 +1,7 @@
 import React from 'react';
 import { Shield, Globe, Zap, Star } from 'lucide-react';
 
-export const DetailsSection = () => {
+export const DetailsSection = ({ id }: { id?: string }) => {
   const details = [
     { icon: Shield, title: "Privacy First", desc: "Your data is encrypted and completely secure within our school networks." },
     { icon: Globe, title: "Global Reach", desc: "Connect with recruiters and open roles from all over the world." },
@@ -10,7 +10,7 @@ export const DetailsSection = () => {
   ];
 
   return (
-    <section className="py-24 bg-[#F9F9F9]">
+    <section id={id} className="py-24 bg-[#F9F9F9]">
       <div className="max-w-7xl mx-auto px-6">
         <div className="mb-16">
           <h2 className="text-4xl font-bold mb-4">Details that matter.</h2>

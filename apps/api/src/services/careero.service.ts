@@ -40,6 +40,8 @@ export interface MatchResult {
     readinessMatch: number;
   };
   missingRequirements: string[];
+  matchedSkills: string[];
+  unmatchedSkills: string[];
 }
 
 /**
@@ -108,12 +110,15 @@ export const evaluateCandidate = async (
   let overallSkillMatchScore = 0;
   const requiredSkills = role.skills || [];
   const studentSkills = student.skillTags || [];
+  const matchedSkills: string[] = [];
+  const unmatchedSkills: string[] = [];
 
   if (requiredSkills.length === 0) {
     overallSkillMatchScore = 100;
   } else if (studentSkills.length === 0) {
     overallSkillMatchScore = 0;
     missingRequirements.push(`Lacking all required skills`);
+    unmatchedSkills.push(...requiredSkills);
   } else {
     try {
       // 1. Load Local NLP Model
@@ -123,8 +128,13 @@ export const evaluateCandidate = async (
       const reqVectors = await extractor(requiredSkills, { pooling: 'mean', normalize: true });
       const reqVectorsArr = reqVectors.tolist();
       
-      // 3. Compute vectors for Student Skills
-      const studentSkillNames = studentSkills.map((s: any) => typeof s === 'string' ? s : s.tag);
+      // 3. Compute vectors for Student Skills — strip # and normalize hyphens so
+      //    '#agile' becomes 'agile' and '#project-management' becomes 'project management'
+      //    for accurate semantic comparison against company-posted skills like 'Agile'.
+      const studentSkillNames = studentSkills.map((s: any) => {
+        const raw = typeof s === 'string' ? s : s.tag;
+        return raw.replace(/^#+/, '').replace(/-/g, ' ').trim();
+      });
       const studentVectors = await extractor(studentSkillNames, { pooling: 'mean', normalize: true });
       const stuVectorsArr = studentVectors.tolist();
       
@@ -150,9 +160,15 @@ export const evaluateCandidate = async (
         }
         
         // If similarity is > 0.75, we consider it a highly strong semantic match
-        // We multiply the similarity by the student's *verified confidence* score in that skill
         const effectiveScore = bestSim * bestMatchConfidence;
         totalSkillMatchSum += effectiveScore;
+
+        // Track per-skill pass/fail (threshold: 0.45 effective score)
+        if (effectiveScore >= 0.45) {
+          matchedSkills.push(requiredSkills[i]);
+        } else {
+          unmatchedSkills.push(requiredSkills[i]);
+        }
       }
       
       // Normalize to 100
@@ -165,8 +181,12 @@ export const evaluateCandidate = async (
       const normalizedStudent = studentSkills.map((s: any) => typeof s === 'string' ? s.toLowerCase() : s.tag.toLowerCase());
       
       for (const req of requiredSkills) {
-        if (normalizedStudent.some(s => s.includes(req.toLowerCase()) || req.toLowerCase().includes(s))) {
+        const matched = normalizedStudent.some(s => s.includes(req.toLowerCase()) || req.toLowerCase().includes(s));
+        if (matched) {
           matchCount++;
+          matchedSkills.push(req);
+        } else {
+          unmatchedSkills.push(req);
         }
       }
       overallSkillMatchScore = Math.round((matchCount / requiredSkills.length) * 100);
@@ -194,6 +214,8 @@ export const evaluateCandidate = async (
       eventsMatch: eventsMatchScore,
       readinessMatch: readinessMatchScore
     },
-    missingRequirements
+    missingRequirements,
+    matchedSkills,
+    unmatchedSkills,
   };
 };

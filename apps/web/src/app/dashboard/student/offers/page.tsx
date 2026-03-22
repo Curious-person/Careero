@@ -439,20 +439,29 @@ export default function StudentOffersPage() {
                              <div>
                                 <h4 className="font-bold text-gray-900">Verified Hard Skills</h4>
                                 <p className="text-xs font-semibold text-gray-500 mt-0.5 leading-relaxed">
-                                   AI semantic matching strictly verifies your confidence scores against these requirements.
+                                   AI semantic matching verifies your skills against requirements.
                                    <span className="block mt-1 font-bold text-blue-600">Your NLP Match: {selectedOffer.careero.breakdown.skillMatch}%</span>
                                 </p>
                              </div>
                           </div>
-                          <div className="flex flex-wrap gap-2 pl-[52px]">
-                             {selectedOffer.role.skills.map((skill: string) => (
-                                <span key={skill} className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 flex items-center gap-1.5 shadow-sm">
-                                   <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                           <ul className="space-y-2 pl-[52px]">
+                             {selectedOffer.role.skills.map((skill: string) => {
+                               const isMatched = (selectedOffer.careero.matchedSkills || []).includes(skill);
+                               return (
+                                 <li key={skill} className={`flex items-center gap-3 p-2.5 rounded-xl border text-sm font-bold transition-colors ${isMatched ? 'bg-green-50 border-green-100 text-green-800' : 'bg-orange-50 border-orange-100 text-orange-800'}`}>
+                                   {isMatched 
+                                     ? <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                                     : <AlertCircle className="w-4 h-4 text-orange-400 shrink-0" />
+                                   }
                                    {skill}
-                                </span>
-                             ))}
-                          </div>
-                       </div>
+                                   <span className={`ml-auto text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${isMatched ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                     {isMatched ? 'Matched' : 'Missing'}
+                                   </span>
+                                 </li>
+                               );
+                             })}
+                           </ul>
+                        </div>
 
                        {/* 3. Mandatory Accumulations */}
                        <div className="bg-white p-5 rounded-[24px] border border-gray-200/50 shadow-sm">
@@ -463,47 +472,95 @@ export default function StudentOffersPage() {
                              <div>
                                 <h4 className="font-bold text-gray-900">Mandatory Accumulations</h4>
                                 <p className="text-xs font-semibold text-gray-500 mt-0.5">
-                                   Specific events set by the company that strictly govern your eligibility.
+                                   Specific events you must complete to be eligible.
                                 </p>
                              </div>
                           </div>
-                          
-                          {(!selectedOffer.role.requiredEvents || selectedOffer.role.requiredEvents.length === 0) ? (
-                             <div className="pl-[52px] text-sm text-gray-400 font-medium">None required.</div>
-                          ) : (
-                             <ul className="space-y-3 pl-[52px]">
-                                {selectedOffer.role.requiredEvents.map((evt: any) => (
-                                   <li key={evt._id} className="flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-white transition-colors cursor-default">
-                                      <div className="flex flex-col gap-0.5">
-                                         <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">{evt.type}</span>
-                                         <span className="text-sm font-bold text-gray-900">{evt.title}</span>
-                                      </div>
-                                      <span className="text-xs font-black text-gray-500 px-2 py-1 rounded-md bg-white border shadow-sm">
-                                         +{evt.points} PTS
-                                      </span>
-                                   </li>
-                                ))}
-                             </ul>
-                          )}
-                       </div>
+                           
+                           {(!selectedOffer.role.requiredEvents || selectedOffer.role.requiredEvents.length === 0) ? (
+                              <div className="pl-[52px] text-sm text-gray-400 font-medium">None required.</div>
+                           ) : (
+                              <ul className="space-y-2 pl-[52px]">
+                                 {selectedOffer.role.requiredEvents.map((evt: any) => {
+                                   const isDone = (selectedOffer.studentCompletedEventIds || []).includes(evt._id?.toString());
+                                   return (
+                                     <li key={evt._id} className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${isDone ? 'bg-green-50 border-green-100' : 'bg-orange-50 border-orange-100'}`}>
+                                       <div className="flex items-center gap-3">
+                                         {isDone 
+                                           ? <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                                           : <AlertCircle className="w-4 h-4 text-orange-400 shrink-0" />
+                                         }
+                                         <div className="flex flex-col gap-0.5">
+                                           <span className={`text-xs font-bold uppercase tracking-wider ${isDone ? 'text-green-700' : 'text-orange-700'}`}>{evt.type}</span>
+                                           <span className={`text-sm font-bold ${isDone ? 'text-green-900' : 'text-gray-900'}`}>{evt.title}</span>
+                                         </div>
+                                       </div>
+                                       <div className="flex items-center gap-2 shrink-0">
+                                         <span className="text-xs font-black text-gray-500 px-2 py-1 rounded-md bg-white border shadow-sm">+{evt.points} PTS</span>
+                                         <span className={`text-[10px] font-black px-2 py-1 rounded-md ${isDone ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                           {isDone ? 'Done ✓' : 'Needed'}
+                                         </span>
+                                       </div>
+                                     </li>
+                                   );
+                                 })}
+                              </ul>
+                           )}
+                        </div>
                     </div>
                  </section>
-              </div>
+                  {/* Missing Requirements Panel — shown only when ineligible */}
+                  {!selectedOffer.careero.isEligible && selectedOffer.careero.missingRequirements?.length > 0 && (
+                    <section>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-orange-500" /> What&apos;s Holding You Back
+                        </h3>
+                        <span className="text-xs font-bold text-orange-600 px-2 py-1 bg-orange-50 rounded-lg border border-orange-100">{selectedOffer.careero.missingRequirements.length} Blocker{selectedOffer.careero.missingRequirements.length > 1 ? 's' : ''}</span>
+                      </div>
+
+                      {/* Category Score Breakdown */}
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        {[
+                          { label: 'Skill Match', score: selectedOffer.careero.breakdown.skillMatch, pass: selectedOffer.careero.breakdown.skillMatch >= 50, icon: Target },
+                          { label: 'Points Match', score: selectedOffer.careero.breakdown.pointsMatch, pass: selectedOffer.careero.breakdown.pointsMatch >= 100, icon: Zap },
+                          { label: 'Events Match', score: selectedOffer.careero.breakdown.eventsMatch, pass: selectedOffer.careero.breakdown.eventsMatch >= 100, icon: Layers },
+                          { label: 'Readiness', score: selectedOffer.careero.breakdown.readinessMatch, pass: selectedOffer.careero.breakdown.readinessMatch >= 100, icon: Activity },
+                        ].map(({ label, score, pass, icon: Icon }) => (
+                          <div key={label} className={`p-4 rounded-2xl border ${pass ? 'bg-green-50 border-green-100' : 'bg-orange-50 border-orange-100'}`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Icon className={`w-3.5 h-3.5 ${pass ? 'text-green-600' : 'text-orange-500'}`} />
+                                <span className={`text-[11px] font-black uppercase tracking-wider ${pass ? 'text-green-700' : 'text-orange-700'}`}>{label}</span>
+                              </div>
+                              {pass ? <CheckCircle className="w-3.5 h-3.5 text-green-500" /> : <AlertCircle className="w-3.5 h-3.5 text-orange-500" />}
+                            </div>
+                            <div className="w-full h-1.5 bg-white rounded-full overflow-hidden border border-white/80">
+                              <div className={`h-full rounded-full ${pass ? 'bg-green-400' : 'bg-orange-400'}`} style={{ width: `${Math.min(100, score)}%` }} />
+                            </div>
+                            <span className={`text-xs font-black mt-1 block ${pass ? 'text-green-700' : 'text-orange-700'}`}>{score}%</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Individual Blockers List */}
+                      <ul className="space-y-2">
+                        {selectedOffer.careero.missingRequirements.map((req: string, i: number) => (
+                          <li key={i} className="flex items-start gap-3 p-4 bg-white border border-orange-100 rounded-2xl shadow-sm">
+                            <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center shrink-0 mt-0.5">
+                              <AlertCircle className="w-3.5 h-3.5 text-orange-500" />
+                            </div>
+                            <p className="text-sm font-semibold text-gray-700">{req}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+               </div>
 
               {/* Drawer Footer Actions */}
               <div className="p-6 bg-white border-t border-gray-100 shrink-0">
-                 {!selectedOffer.careero.isEligible && selectedOffer.careero.missingRequirements.length > 0 && (
-                    <div className="mb-4 p-4 rounded-xl bg-orange-50 border border-orange-100">
-                       <p className="text-xs font-bold text-orange-800 uppercase tracking-widest mb-2 flex items-center gap-1">
-                          <AlertTriangle className="w-3.5 h-3.5" /> What's holding you back?
-                       </p>
-                       <ul className="list-disc list-inside space-y-1 text-xs font-medium text-orange-700">
-                          {selectedOffer.careero.missingRequirements.map((req: string, i: number) => (
-                             <li key={i}>{req}</li>
-                          ))}
-                       </ul>
-                    </div>
-                 )}
+                 
                 <div className="flex gap-3">
                   <Button variant="outline" onClick={() => setSelectedOffer(null)} className="flex-1 font-bold h-12 rounded-xl text-gray-600 bg-white border-gray-200">
                     Cancel

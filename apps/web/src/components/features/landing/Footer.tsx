@@ -1,5 +1,6 @@
 import React from 'react';
 import { Rocket } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 export const Footer = () => {
@@ -9,10 +10,10 @@ export const Footer = () => {
         <div className="flex flex-col md:flex-row justify-between gap-12 mb-20">
           <div className="max-w-xs">
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-                <Rocket className="text-white w-5 h-5" />
+              <div className="w-10 h-10 flex items-center justify-center p-1">
+                <Image src="/logo.png" alt="Careero" width={40} height={40} className="object-contain" priority />
               </div>
-              <span className="text-xl font-bold tracking-tight">Careero</span>
+              <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-black to-gray-600">Careero</span>
             </div>
             <p className="text-gray-500 text-sm leading-relaxed">
               Empowering the next generation to build meaningful careers through verified skills and community.

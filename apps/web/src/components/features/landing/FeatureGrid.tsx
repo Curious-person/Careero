@@ -6,7 +6,7 @@ export const FeatureGrid = () => {
     <section id="features" className="py-24 bg-white relative z-10">
       <div className="max-w-7xl mx-auto px-6">
         <div className="mb-16 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">Explore Careero in a <br />whole new way.</h2>
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">The platform designed <br />for high-impact careers.</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -33,8 +33,8 @@ export const FeatureGrid = () => {
               <Users className="text-white w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-2xl font-bold mb-2">Company Network</h3>
-              <p className="text-gray-500">Connect with recruiters from top companies who want to hire verified talent.</p>
+              <h3 className="text-2xl font-bold mb-2">Global Network</h3>
+              <p className="text-gray-500">Connect with hiring partners and recruiters from world-class organizations looking for verified talent.</p>
             </div>
           </div>
         </div>
@@ -54,8 +54,8 @@ export const FeatureGrid = () => {
             </div>
           </div>
           <div className="glass-card p-8 flex flex-col justify-center bg-black text-white">
-            <h3 className="text-2xl text-black font-bold mb-2">Verified Skillset</h3>
-            <p className="text-gray-400 mb-6">Your achievements are backed by school-verified accumulation points.</p>
+            <h3 className="text-2xl font-bold mb-2 text-black">Verified Proof</h3>
+            <p className="text-gray-400 mb-6">Your achievements are backed by school-verified milestones and accumulation points.</p>
             <div className="flex -space-x-2">
               {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="w-10 h-10 rounded-full border-2 border-black bg-gray-800 flex items-center justify-center text-[10px] font-bold">

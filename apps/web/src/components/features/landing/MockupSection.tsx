@@ -9,11 +9,12 @@ interface MockupSectionProps {
   description: string;
   color: string;
   reverse?: boolean;
+  id?: string;
 }
 
-export const MockupSection = ({ title, subtitle, description, color, reverse = false }: MockupSectionProps) => {
+export const MockupSection = ({ title, subtitle, description, color, reverse = false, id }: MockupSectionProps) => {
   return (
-    <section className="py-24 bg-white overflow-hidden relative z-10">
+    <section id={id} className="py-24 bg-white overflow-hidden relative z-10">
       <div className="max-w-7xl mx-auto px-6">
         <div className={cn(
           "flex flex-col md:flex-row items-center gap-16",

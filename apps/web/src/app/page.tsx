@@ -22,15 +22,16 @@ export default function LandingPage() {
         <FeatureGrid />
 
         <MockupSection
+          id="explore"
           title="Level up your skills, every single day."
-          subtitle="Track Progress"
+          subtitle="Direct Path"
           description="Our interactive dashboard gives you a bird's eye view of your professional growth. See where you excel and exactly how many points you need for that dream internship."
           color="text-brand-blue"
         />
 
         <MockupSection
           title="Direct matches to open internships."
-          subtitle="Connect"
+          subtitle="Match Engine"
           description="Skip the cold emails. Careero automatically matches your verified school milestones with companies actively looking for your exact skillset."
           color="text-brand-green"
           reverse
@@ -38,7 +39,7 @@ export default function LandingPage() {
 
         <BlogSection />
 
-        <DetailsSection />
+        <DetailsSection id="community" />
 
         {/* Final CTA */}
         <section className="py-32 bg-white text-center px-6">

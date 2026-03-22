@@ -9,6 +9,8 @@ const auth_route_1 = __importDefault(require("./auth.route"));
 const profile_route_1 = __importDefault(require("./profile.route"));
 const accumulation_route_1 = __importDefault(require("./accumulation.route"));
 const role_route_1 = __importDefault(require("./role.route"));
+const companyProfile_route_1 = __importDefault(require("./companyProfile.route"));
+const interview_route_1 = __importDefault(require("./interview.route"));
 const router = express_1.default.Router();
 const defaultRoutes = [
     {
@@ -30,6 +32,14 @@ const defaultRoutes = [
     {
         path: '/roles',
         route: role_route_1.default,
+    },
+    {
+        path: '/company',
+        route: companyProfile_route_1.default,
+    },
+    {
+        path: '/interviews',
+        route: interview_route_1.default,
     },
 ];
 defaultRoutes.forEach((route) => {

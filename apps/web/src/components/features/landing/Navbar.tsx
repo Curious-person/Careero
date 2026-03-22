@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Rocket, Menu, X } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -24,10 +25,10 @@ export const Navbar = () => {
     )}>
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-            <Rocket className="text-white w-5 h-5" />
+          <div className="w-10 h-10 flex items-center justify-center p-1">
+            <Image src="/logo.png" alt="Careero" width={40} height={40} className="object-contain" priority />
           </div>
-          <span className="text-xl font-bold tracking-tight">Careero</span>
+          <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-black to-gray-600">Careero</span>
         </div>
 
         <div className="hidden md:flex items-center gap-8">

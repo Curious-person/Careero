@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { Rocket } from 'lucide-react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { apiClient } from '@/lib/apiClient'
@@ -180,8 +181,8 @@ export default function LoginPage() {
       {/* Navbar overlay */}
       <nav className="p-6 absolute top-0 left-0 w-full flex justify-between items-center z-50">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-            <Rocket className="text-white w-5 h-5" />
+          <div className="w-10 h-10 flex items-center justify-center p-1">
+            <Image src="/logo.png" alt="Careero" width={40} height={40} className="object-contain" priority />
           </div>
           <span className="text-xl font-bold tracking-tight">Careero</span>
         </Link>
@@ -217,8 +218,8 @@ export default function LoginPage() {
                 transition={{ duration: 0.3 }}
                 className="text-center"
               >
-                <div className="w-16 h-16 bg-gray-100 rounded-2xl mx-auto mb-6 flex items-center justify-center">
-                  <Rocket className="w-8 h-8 text-black" />
+                <div className="w-20 h-20 bg-white rounded-[32px] shadow-xl border border-gray-100 flex items-center justify-center mb-8 p-4">
+                  <Image src="/logo.png" alt="Careero" width={80} height={80} className="object-contain" priority />
                 </div>
                 <h1 className="text-2xl font-bold mb-2">Welcome to Careero</h1>
                 <p className="text-sm text-gray-500 mb-8">Log in or sign up to get started.</p>

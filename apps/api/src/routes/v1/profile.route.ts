@@ -27,6 +27,9 @@ router.post('/onboard', profileController.submitOnboarding);
 // Appends validations continuously
 router.post('/certifications/add', profileController.addCertification);
 
+// AI Roadmap generation
+router.post('/roadmap/generate', llmLimiter, profileController.regenerateRoadmap);
+
 // AI Resume Builder endpoints
 router.post('/resume/generate', llmLimiter, profileController.generateResume);
 router.post('/resume/save', profileController.saveResume);

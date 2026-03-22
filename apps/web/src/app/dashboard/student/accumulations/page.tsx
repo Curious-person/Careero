@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useSearchParams } from 'next/navigation'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -388,6 +389,9 @@ function ActiveAccumulationView({
 
 // ─── Main Page ────────────────────────────────────────────────────────────
 export default function StudentAccumulationsPage() {
+  const searchParams = useSearchParams()
+  const targetId = searchParams.get('id')
+
   const [accumulations, setAccumulations] = useState<Accumulation[]>([])
   const [loading, setLoading] = useState(true)
   const [studentName, setStudentName] = useState('')
@@ -430,6 +434,23 @@ export default function StudentAccumulationsPage() {
 
   const getParticipantStatus = (accum: Accumulation) =>
     accum.participantList.find(p => p.name === studentName)?.status
+
+  // Handle auto-opening from URL params (e.g. from Profile page)
+  useEffect(() => {
+    if (targetId && accumulations.length > 0 && !loading && studentName) {
+      const target = accumulations.find(a => a._id === targetId)
+      if (target) {
+        const status = getParticipantStatus(target)
+        if (status === 'In Progress' || status === 'Completed') {
+          setActiveView(target)
+          setActiveTab(status === 'In Progress' ? 'in-progress' : 'completed')
+        } else {
+          setSelectedAccumForDrawer(target)
+          setActiveTab('available')
+        }
+      }
+    }
+  }, [targetId, accumulations, loading, studentName])
 
   const filtered = accumulations.filter(a => {
     if (filter !== 'All' && a.type !== filter) return false

@@ -231,17 +231,32 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="px-6 pb-6 flex-1 overflow-y-auto max-h-[400px] hide-scrollbar relative">
                 <div className="space-y-4">
-                  {profile.careerRoadmap.roadmap.map((step: any, i: number) => (
+                  {(profile.careerRoadmap.phases?.flatMap((p: any) => p.nodes) || []).map((node: any, i: number, arr: any[]) => (
                     <div key={i} className="flex gap-4 p-4 bg-white rounded-2xl border border-blue-50 shadow-[0_1px_3px_rgba(0,0,0,0.02)] relative group hover:-translate-y-0.5 transition-transform cursor-default">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-black text-xs z-10 shadow-md shadow-blue-600/20">
-                        {step.step}
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] z-10 shadow-md ${
+                        node.status === 'Completed' ? 'bg-green-500 text-white' :
+                        node.status === 'Current' ? 'bg-blue-600 text-white animate-pulse' :
+                        'bg-gray-100 text-gray-400'
+                      }`}>
+                        {i + 1}
                       </div>
-                      {i !== profile.careerRoadmap.roadmap.length - 1 && (
+                      {i !== arr.length - 1 && (
                         <div className="absolute left-8 top-12 bottom-[-16px] w-[2px] bg-blue-100 group-hover:bg-blue-300 transition-colors" />
                       )}
-                      <div>
-                        <h4 className="font-bold text-sm text-gray-900 leading-tight">{step.title}</h4>
-                        <p className="text-xs text-gray-500 mt-1.5 leading-relaxed bg-gray-50 p-2 rounded-lg">{step.description}</p>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <h4 className="font-bold text-sm text-gray-900 leading-tight">{node.title}</h4>
+                          <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md ${
+                            node.status === 'Completed' ? 'text-green-700 bg-green-100' :
+                            node.status === 'Current' ? 'text-blue-700 bg-blue-100' :
+                            'text-gray-400 bg-gray-50'
+                          }`}>
+                            {node.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1 lines-clamp-2 leading-relaxed bg-gray-50 p-2 rounded-lg italic">
+                          &quot;{node.description.slice(0, 60)}...&quot;
+                        </p>
                       </div>
                     </div>
                   ))}

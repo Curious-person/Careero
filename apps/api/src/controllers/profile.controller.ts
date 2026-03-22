@@ -282,8 +282,18 @@ export const getProfile = async (
       );
     }
 
-    // Generate the dynamic roadmap on the fly using their array of { tag, confidence }
-    const careerRoadmap = generateSmartRoadmap(profile.skillTags);
+    // ── Career Roadmap Logic ──
+    // 1. If cached roadmap exists, return it immediately to save LLM costs.
+    // 2. If it's the student's first time or cache is missing, generate on-the-fly.
+    let careerRoadmap = (profile as any).careerRoadmap;
+    
+    if (!careerRoadmap) {
+      careerRoadmap = await generateSmartRoadmap(profile.skillTags as any, profile.totalPoints);
+      await StudentProfile.updateOne(
+        { _id: profile._id },
+        { $set: { careerRoadmap, lastRoadmapGen: new Date() } }
+      );
+    }
 
     return res.json({
       message: 'Profile retrieved successfully',
@@ -326,7 +336,7 @@ export const getStudentById = async (
   try {
     const profile = await StudentProfile.findById(req.params.id).populate('user', 'email').lean();
     if (!profile) return res.status(404).json({ message: 'Profile not found' });
-    const careerRoadmap = generateSmartRoadmap(profile.skillTags as any);
+    const careerRoadmap = await generateSmartRoadmap(profile.skillTags as any, profile.totalPoints);
     return res.json({ data: { ...profile, careerRoadmap } });
   } catch (error) {
     next(error);
@@ -456,7 +466,7 @@ export const addCertification = async (
     await profile.save();
     
     // Regenerate roadmap attached to the response payload to hot-reload the UI seamlessly
-    const careerRoadmap = generateSmartRoadmap(profile.skillTags as any);
+    const careerRoadmap = await generateSmartRoadmap(profile.skillTags as any, profile.totalPoints);
 
     return res.status(200).json({
       message: 'Certification added successfully! Your points and roadmap have been updated.',
@@ -553,6 +563,40 @@ Please format the resume with the following sections:
       });
     }
 
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 8. POST /api/v1/profile/roadmap/generate
+ *    Forces a fresh AI Generation of the Roadmap.
+ *    Protected by llmLimiter (10/hr).
+ */
+export const regenerateRoadmap = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const token = req.cookies?.jwt;
+    if (!token) return res.status(401).json({ message: 'Unauthorized' });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
+
+    const profile = await StudentProfile.findOne({ user: decoded.id });
+    if (!profile) return res.status(404).json({ message: 'Profile not found' });
+
+    // Force fresh AI generation
+    const careerRoadmap = await generateSmartRoadmap(profile.skillTags as any, profile.totalPoints);
+    
+    profile.careerRoadmap = careerRoadmap;
+    profile.lastRoadmapGen = new Date();
+    await profile.save();
+
+    return res.json({
+      message: 'Smart Career Roadmap regenerated successfully!',
+      data: careerRoadmap,
+    });
   } catch (error) {
     next(error);
   }

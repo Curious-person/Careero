@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import Image from 'next/image'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
-import { Loader2, ShieldCheck, ShieldAlert, BadgeInfo, Network, Award, LayoutDashboard, Layers, Briefcase, Users, CheckCircle, HelpCircle, ChevronRight, Eye, UploadCloud, CheckCircle2, ChevronDown, ChevronUp, FileText, Download, Save, RefreshCw } from 'lucide-react'
+import { Loader2, ShieldCheck, ShieldAlert, BadgeInfo, Network, Award, LayoutDashboard, Layers, Briefcase, Users, CheckCircle, HelpCircle, ChevronRight, Eye, UploadCloud, CheckCircle2, ChevronDown, ChevronUp, FileText, Download, Save, RefreshCw, Activity } from 'lucide-react'
 import { toast } from "sonner"
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts'
 
@@ -41,6 +41,7 @@ export default function StudentProfilePage() {
   const [generatingResume, setGeneratingResume] = useState(false)
   const [savingResume, setSavingResume] = useState(false)
   const [isEditingResume, setIsEditingResume] = useState(false)
+  const [generatingRoadmap, setGeneratingRoadmap] = useState(false)
 
 
   useEffect(() => {
@@ -101,6 +102,23 @@ export default function StudentProfilePage() {
       toast.error(err.response?.data?.message || err.message || 'Failed to save')
     } finally {
       setSavingResume(false)
+    }
+  }
+
+  const handleRegenerateRoadmap = async () => {
+    setGeneratingRoadmap(true)
+    try {
+      const res = await apiClient.post('/profile/roadmap/generate')
+      setProfile({ ...profile, careerRoadmap: res.data.data })
+      toast.success('Your Smart Career Roadmap has been updated with fresh AI insights!')
+    } catch (err: any) {
+      if (err.response?.status === 429) {
+        toast.error('AI Generation Limit Reached: You can regenerate your roadmap 10 times per hour. Please try again later.')
+      } else {
+        toast.error(err.response?.data?.message || err.message || 'Failed to regenerate roadmap.')
+      }
+    } finally {
+      setGeneratingRoadmap(false)
     }
   }
 
@@ -406,33 +424,30 @@ export default function StudentProfilePage() {
                   )
 
                   return (
-                    <Card className="rounded-[32px] shadow-2xl border-none bg-zinc-950 text-white h-fit overflow-hidden relative group">
-                      {/* Decorative gradient blur */}
-                      <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-600/10 blur-[80px] rounded-full group-hover:bg-blue-600/20 transition-all duration-700" />
-                      
-                      <CardHeader className="relative z-10">
+                    <Card className="rounded-[32px] shadow-sm border-gray-100 bg-white h-fit overflow-hidden relative group">
+                      <CardHeader>
                         <div className="flex justify-between items-start">
                           <div>
-                            <CardTitle className="text-2xl font-black text-white tracking-tight">Your Path Track</CardTitle>
-                            <CardDescription className="text-zinc-500 font-medium mt-1">
+                            <CardTitle className="text-2xl font-bold text-black tracking-tight">Your Path Track</CardTitle>
+                            <CardDescription className="text-gray-500 font-medium mt-1">
                               {myAccums.length === 0
                                 ? 'No accumulations yet. Start your journey.'
                                 : `${completed.length} Milestones Reached · ${inProgress.length} Active`}
                             </CardDescription>
                           </div>
-                          <div className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
-                            <Layers className="w-5 h-5 text-blue-400" />
+                          <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center border border-blue-100">
+                            <Layers className="w-5 h-5 text-blue-600" />
                           </div>
                         </div>
                       </CardHeader>
-                      <CardContent className="pb-8 space-y-4 relative z-10">
+                      <CardContent className="pb-8 space-y-6">
                         {myAccums.length === 0 ? (
                           <div className="space-y-6">
-                            <p className="text-zinc-400 leading-relaxed text-sm">
+                            <p className="text-gray-500 leading-relaxed text-sm">
                               Participate in real-world technical bounties, hackathons, and design sprints hosted directly by partner companies and your school to boost your Skill Graph.
                             </p>
                             <a href="/dashboard/student/accumulations" className="block">
-                              <Button className="rounded-2xl bg-white text-black hover:bg-zinc-200 w-full h-12 font-bold group transition-all">
+                              <Button className="rounded-2xl bg-blue-600 text-white hover:bg-blue-700 w-full h-12 font-bold group transition-all">
                                 Browse Challenges <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                               </Button>
                             </a>
@@ -442,48 +457,52 @@ export default function StudentProfilePage() {
                             {inProgress.length > 0 && (
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                  <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">In Progress</p>
-                                  <div className="h-px bg-zinc-800 flex-1 ml-4" />
+                                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Ongoing Experience</p>
+                                  <div className="h-px bg-gray-100 flex-1 ml-4" />
                                 </div>
                                 {inProgress.map((a: any) => (
-                                  <div key={a._id} className="group/item flex items-center justify-between bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 rounded-[20px] px-4 py-3.5 transition-all">
-                                    <div className="flex items-center gap-3 min-w-0">
-                                      <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)] flex-shrink-0" />
-                                      <p className="text-sm font-bold text-zinc-200 truncate">{a.title}</p>
+                                  <a key={a._id} href={`/dashboard/student/accumulations?id=${a._id}`} className="block">
+                                    <div className="group/item flex items-center justify-between bg-white hover:bg-blue-50/50 border border-gray-100 rounded-[20px] px-4 py-3.5 transition-all hover:border-blue-200">
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.3)] flex-shrink-0" />
+                                        <p className="text-sm font-bold text-gray-900 truncate group-hover/item:text-blue-700 transition-colors">{a.title}</p>
+                                      </div>
+                                      <div className="flex items-center gap-3 shrink-0 ml-3">
+                                        <span className="text-xs font-black text-blue-600">+{a.points}</span>
+                                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover/item:text-blue-400 group-hover/item:translate-x-1 transition-all" />
+                                      </div>
                                     </div>
-                                    <div className="flex items-center gap-3 shrink-0 ml-3">
-                                      <span className="text-xs font-black text-blue-400">+{a.points}</span>
-                                      <span className="text-[10px] px-2 py-0.5 rounded-lg bg-white/5 text-zinc-500 font-bold border border-white/5">{a.type}</span>
-                                    </div>
-                                  </div>
+                                  </a>
                                 ))}
                               </div>
                             )}
                             {completed.length > 0 && (
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                  <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Successes</p>
-                                  <div className="h-px bg-zinc-800 flex-1 ml-4" />
+                                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Successes</p>
+                                  <div className="h-px bg-gray-100 flex-1 ml-4" />
                                 </div>
                                 {completed.map((a: any) => (
-                                  <div key={a._id} className="flex items-center justify-between bg-emerald-500/[0.03] border border-emerald-500/10 rounded-[20px] px-4 py-3.5">
-                                    <div className="flex items-center gap-3 min-w-0">
-                                      <div className="w-4 h-4 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                                        <CheckCircle className="w-2.5 h-2.5 text-emerald-500" />
+                                  <a key={a._id} href={`/dashboard/student/accumulations?id=${a._id}`} className="block">
+                                    <div className="flex items-center justify-between bg-green-50/30 hover:bg-green-50/60 border border-green-100/50 rounded-[20px] px-4 py-3.5 transition-all group/item">
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div className="w-4 h-4 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                                          <CheckCircle className="w-2.5 h-2.5 text-green-600" />
+                                        </div>
+                                        <p className="text-sm font-bold text-gray-800 truncate">{a.title}</p>
                                       </div>
-                                      <p className="text-sm font-bold text-zinc-300 truncate">{a.title}</p>
+                                      <div className="flex items-center gap-3 shrink-0 ml-3">
+                                        <span className="text-xs font-black text-green-600">+{a.points}</span>
+                                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover/item:text-green-500 group-hover/item:translate-x-1 transition-all" />
+                                      </div>
                                     </div>
-                                    <div className="flex items-center gap-3 shrink-0 ml-3">
-                                      <span className="text-xs font-black text-emerald-400">+{a.points}</span>
-                                      <span className="text-[10px] px-2 py-0.5 rounded-lg bg-emerald-500/5 text-emerald-500/40 font-bold border border-emerald-500/5 uppercase tracking-tighter">Done</span>
-                                    </div>
-                                  </div>
+                                  </a>
                                 ))}
                               </div>
                             )}
                             <a href="/dashboard/student/accumulations" className="block pt-2">
-                              <Button variant="outline" className="rounded-2xl border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 hover:border-white/20 w-full font-bold h-11 transition-all">
-                                View Full Dashboard <ChevronRight className="w-4 h-4 ml-1" />
+                              <Button variant="outline" className="rounded-2xl border-gray-100 text-gray-500 hover:text-blue-600 hover:bg-blue-50/50 hover:border-blue-200 w-full font-bold h-11 transition-all shadow-sm">
+                                Open Accumulations <ChevronRight className="w-4 h-4 ml-1" />
                               </Button>
                             </a>
                           </div>
@@ -606,41 +625,141 @@ export default function StudentProfilePage() {
                     <CardHeader className="p-8">
                       <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-6">
                         <div>
-                          <CardTitle className="text-2xl text-black flex items-center gap-2 mb-2">
-                            <Network className="w-6 h-6 text-blue-600" />
-                            Smart Career Roadmap
+                          <CardTitle className="text-2xl text-black flex items-center justify-between gap-2 mb-2 w-full">
+                            <div className="flex items-center gap-2">
+                              <Network className="w-6 h-6 text-blue-600" />
+                              Smart Career Roadmap
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={handleRegenerateRoadmap}
+                              disabled={generatingRoadmap}
+                              className="rounded-xl text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all gap-2 h-9 px-3"
+                            >
+                              {generatingRoadmap ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  <span className="text-[10px] font-bold uppercase tracking-widest leading-none">AI Generating...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCw className="w-3.5 h-3.5" />
+                                  <span className="text-[10px] font-bold uppercase tracking-widest leading-none">Regenerate</span>
+                                </>
+                              )}
+                            </Button>
                           </CardTitle>
                           <CardDescription className="text-base">
                             Algorithmically calculated using {profile.skillTags.length} dynamic capability strings to forge your fastest route to hire.
                           </CardDescription>
                         </div>
-                        <div className="md:text-right bg-white p-4 rounded-2xl border border-blue-100 shadow-sm min-w-[200px]">
-                          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Target Role</p>
-                          <p className="text-xl font-black text-blue-600 leading-tight">{profile.careerRoadmap.targetRole}</p>
-                          <div className="mt-2 w-full bg-blue-50 h-2 rounded-full overflow-hidden">
-                            <div className="bg-blue-600 h-full rounded-full" style={{ width: `${profile.careerRoadmap.matchPercentage}%` }} />
+                        <div className="md:text-right bg-white p-6 rounded-[24px] border border-gray-100 shadow-sm min-w-[240px]">
+                          <div className="flex items-center gap-2 justify-end mb-2">
+                            <span className="w-2 h-2 rounded-full bg-brand-blue animate-pulse" />
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Target Role</p>
                           </div>
-                          <p className="text-[10px] font-bold text-blue-800 mt-2 tracking-widest uppercase">
-                            {profile.careerRoadmap.matchPercentage}% Match Alignment
-                          </p>
+                          <p className="text-xl font-bold text-black leading-tight mb-4 tracking-tight">{profile.careerRoadmap.targetRole}</p>
+                          
+                          <div>
+                            <div className="flex justify-between items-end mb-2">
+                              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Alignment Match</span>
+                              <span className="text-xs font-bold text-brand-blue">{profile.careerRoadmap.matchPercentage}%</span>
+                            </div>
+                            <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                              <motion.div 
+                                initial={{ width: 0 }}
+                                animate={{ width: `${profile.careerRoadmap.matchPercentage}%` }}
+                                transition={{ duration: 1, ease: "easeOut" }}
+                                className="bg-brand-blue h-full rounded-full" 
+                              />
+                            </div>
+                            <p className="text-[9px] font-bold text-gray-400 mt-2 tracking-widest uppercase">
+                              Specialization Grade: {profile.careerRoadmap.matchPercentage >= 80 ? 'Expert' : profile.careerRoadmap.matchPercentage >= 50 ? 'Intermediate' : 'Foundation'}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="px-8 pb-8">
-                      <div className="space-y-4">
-                        {profile.careerRoadmap.roadmap.map((step: any, i: number) => (
-                          <div key={i} className="flex gap-6 p-6 bg-white rounded-[24px] border border-gray-100 shadow-sm relative group hover:-translate-y-1 transition-transform">
-                            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-black text-xl z-10 shadow-lg shadow-blue-600/20">
-                              {step.step}
+                    <CardContent className="px-8 pb-16">
+                      <div className="space-y-16 relative mt-6">
+                        {/* The Minimalist Connector Line */}
+                        <div className="absolute left-[20px] top-6 bottom-6 w-[1px] bg-gray-100 hidden md:block" />
+
+                        {profile.careerRoadmap.phases?.map((phase: any, phaseIdx: number) => (
+                          <motion.div 
+                            key={phaseIdx} 
+                            initial={{ opacity: 0, y: 10 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: phaseIdx * 0.1 }}
+                            className="relative"
+                          >
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.25em] mb-10 pl-0 md:pl-12">
+                              Phase {phaseIdx + 1}: {phase.name}
+                            </p>
+                            
+                            <div className="grid gap-10">
+                              {phase.nodes.map((node: any, nodeIdx: number) => (
+                                <div key={nodeIdx} className="flex gap-6 md:gap-12 relative group">
+                                  {/* Simple Modern Node Indicator */}
+                                  <div className="relative z-10 flex-shrink-0 mt-2">
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all duration-300 ${
+                                      node.status === 'Completed' ? 'bg-white border-brand-green text-brand-green shadow-sm' :
+                                      node.status === 'Current' ? 'bg-brand-blue border-brand-blue text-white shadow-md shadow-brand-blue/20 scale-110' :
+                                      'bg-white border-gray-200 text-gray-300'
+                                    }`}>
+                                      {node.status === 'Completed' ? <CheckCircle2 className="w-5 h-5" /> :
+                                       node.status === 'Current' ? <Activity className="w-5 h-5" /> :
+                                       <Layers className="w-5 h-5" />}
+                                    </div>
+                                  </div>
+
+                                  {/* Minimalist Card */}
+                                  <div className={`flex-1 p-8 rounded-[24px] border border-gray-100 transition-all duration-300 hover:border-gray-200 hover:shadow-sm ${
+                                    node.status === 'Current' ? 'bg-blue-50/30 border-blue-100/50' : 'bg-white'
+                                  }`}>
+                                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-5">
+                                      <div>
+                                        <h4 className="font-bold text-lg text-black group-hover:text-brand-blue transition-colors">
+                                          {node.title}
+                                        </h4>
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                          <span className={`text-[9px] font-bold uppercase tracking-widest ${
+                                            node.status === 'Completed' ? 'text-brand-green' :
+                                            node.status === 'Current' ? 'text-brand-blue' :
+                                            'text-gray-400'
+                                          }`}>
+                                            {node.status}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      
+                                      <div className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border ${
+                                        node.status === 'Completed' ? 'bg-green-50/50 border-green-100 text-green-700' :
+                                        node.status === 'Current' ? 'bg-blue-600 text-white border-blue-600' :
+                                        'bg-gray-50 border-gray-100 text-gray-400'
+                                      }`}>
+                                        {node.status === 'Completed' ? 'Achieved' : node.status === 'Current' ? 'Current Goal' : 'Planned'}
+                                      </div>
+                                    </div>
+
+                                    <p className="text-gray-500 text-sm leading-relaxed mb-6 max-w-2xl">
+                                      {node.description}
+                                    </p>
+                                    
+                                    <div className="flex flex-wrap gap-2">
+                                      {node.skills.map((skill: string, sIdx: number) => (
+                                        <span key={sIdx} className="px-3 py-1 rounded-lg bg-gray-50 border border-gray-100 text-[10px] font-semibold text-gray-600">
+                                          {skill}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                            {i !== profile.careerRoadmap.roadmap.length - 1 && (
-                              <div className="absolute left-12 top-16 bottom-[-24px] w-[3px] bg-blue-100 group-hover:bg-blue-200 transition-colors" />
-                            )}
-                            <div className="pt-1">
-                              <h4 className="font-bold text-lg text-gray-900 mb-1">{step.title}</h4>
-                              <p className="text-base text-gray-500 leading-relaxed">{step.description}</p>
-                            </div>
-                          </div>
+                          </motion.div>
                         ))}
                       </div>
                     </CardContent>

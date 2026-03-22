@@ -47,6 +47,8 @@ export interface IStudentProfile extends Document {
     rawSoftSkills?: number;
   };
   resumeMarkdown?: string;
+  careerRoadmap?: any; // Cached SmartRoadmap object
+  lastRoadmapGen?: Date;
   status: 'PENDING_ONBOARDING' | 'UNDER_EVALUATION' | 'VERIFIED' | 'REJECTED';
 }
 
@@ -101,6 +103,8 @@ const StudentProfileSchema = new Schema<IStudentProfile>(
       rawSoftSkills: { type: Number, default: 0 },
     },
     resumeMarkdown: { type: String, default: '' },
+    careerRoadmap: { type: Schema.Types.Mixed },
+    lastRoadmapGen: { type: Date },
     status: {
       type: String,
       enum: ['PENDING_ONBOARDING', 'UNDER_EVALUATION', 'VERIFIED', 'REJECTED'],

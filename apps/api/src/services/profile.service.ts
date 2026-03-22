@@ -105,73 +105,69 @@ const convertGradeToScore = (grade: number): number => {
 };
 
 /**
- * Advanced Evaluation Engine mapping Academic Weights (40%), Certifications (30%), and Achievements (20%)
+ * Advanced Evaluation Engine mapping Academic Weights (30%), Certifications (20%), 
+ * Accumulations (20%), Achievements (10%), Hard Skills (15%), and Soft Skills (5%).
+ * Scales to 1000+ points to align with Industry Role Standards.
  */
 export const calculatePoints = (records: IAcademicRecord[], certs: ICertification[] = []) => {
-  // --- 1. ACADEMIC POINTS ---
+  // --- 1. ACADEMIC POINTS (Max 300) ---
   let totalValid = 0;
   let count = 0;
   records.forEach(record => {
     const score = convertGradeToScore(record.grade);
-    if (score > 0) { // Only count passing grades
+    if (score > 0) {
       totalValid += score;
       count++;
     }
   });
+  const academicRaw = count > 0 ? (totalValid / count) : 0;
+  const weightedAcademic = Math.round(academicRaw * 3); // 30% of 1000
 
-  // Calculate raw scores correctly out of 100
-  // Note: convertGradeToScore already returns up to 100, so taking the average directly gives the correct score out of 100
-  const academicScore = count > 0 ? (totalValid / count) : 0;
-  
-  // --- 2. CERTIFICATION & ACHIEVEMENT POINTS ---
-  const certScore = Math.min(certs.length * 20, 100);
-  const achievementScore = 0; // Fixed zero for now since model doesn't track Extracurricular metrics robustly yet
+  // --- 2. CERTIFICATION POINTS (Max 200) ---
+  const certRaw = Math.min(certs.length * 20, 100);
+  const weightedCert = Math.round(certRaw * 2); // 20% of 1000
 
-  // Dynamically compile derived skills from academic overlaps and AI Xenova strings
+  // --- 3. SKILL POINTS (Hard & Soft) ---
   const skillTags = deriveSkillTags(records, certs);
   const isSoftSkill = (tag: string) => ['leadership', 'agile', 'scrum', 'communication', 'teamwork', 'adaptability'].includes(tag.toLowerCase());
-  const hardSkillsCount = skillTags.filter(t => !isSoftSkill(t.tag)).length;
-  const softSkillsCount = skillTags.filter(t => isSoftSkill(t.tag)).length;
+  
+  const hardSkills = skillTags.filter(t => !isSoftSkill(t.tag));
+  const softSkills = skillTags.filter(t => isSoftSkill(t.tag));
 
-  const hardSkillsRaw = Math.min(hardSkillsCount * 15, 100);
-  const softSkillsRaw = Math.min(softSkillsCount * 25, 100);
+  // Role Points System Logic: 50 pts per skill + complexity multiplier
+  const BASE_SKILL_VALUE = 50;
+  
+  // Hard Skills Calculation
+  const hsCount = hardSkills.length;
+  const hsMultiplier = 1.0 + (0.1 * Math.max(0, hsCount - 1));
+  const hardSkillsScore = Math.round(BASE_SKILL_VALUE * hsCount * Math.min(hsMultiplier, 1.9));
+  
+  // Soft Skills Calculation
+  const ssCount = softSkills.length;
+  const ssMultiplier = 1.0 + (0.1 * Math.max(0, ssCount - 1));
+  const softSkillsScore = Math.round(BASE_SKILL_VALUE * ssCount * Math.min(ssMultiplier, 1.9));
 
-  // New Fractional Weightings: Max sum equals 100 points
-  // Academics: 30%
-  // Certifications: 20%
-  // Accumulations: 10% (Locked)
-  // Achievements: 10%
-  // Hard Skills: 20%
-  // Soft Skills: 10%
-  const weightedAcademic = academicScore * 0.3;
-  const weightedCert = certScore * 0.2;
-  const weightedAccumulations = 0;
-  const weightedAchievement = achievementScore * 0.1;
-  const weightedHardSkills = hardSkillsRaw * 0.2;
-  const weightedSoftSkills = softSkillsRaw * 0.1;
+  // --- 4. ACCUMULATIONS & ACHIEVEMENTS (Placeholders) ---
+  const weightedAccumulations = 0; // Handled by controller during completion
+  const weightedAchievement = 0;
 
-  const bAcademic = Math.round(weightedAcademic);
-  const bCert = Math.round(weightedCert);
-  const bAccum = Math.round(weightedAccumulations);
-  const bAchieve = Math.round(weightedAchievement);
-  const bHard = Math.round(weightedHardSkills);
-  const bSoft = Math.round(weightedSoftSkills);
+  const total = weightedAcademic + weightedCert + hardSkillsScore + softSkillsScore + weightedAccumulations + weightedAchievement;
 
   return {
-    total: bAcademic + bCert + bAccum + bAchieve + bHard + bSoft,
+    total,
     breakdown: {
-      academic: bAcademic,
-      cert: bCert,
-      accumulations: bAccum,
-      achievement: bAchieve,
-      hardSkills: bHard,
-      softSkills: bSoft,
-      rawAcademic: Math.round(academicScore),
-      rawCert: Math.round(certScore),
+      academic: weightedAcademic,
+      cert: weightedCert,
+      accumulations: weightedAccumulations,
+      achievement: weightedAchievement,
+      hardSkills: hardSkillsScore,
+      softSkills: softSkillsScore,
+      rawAcademic: Math.round(academicRaw),
+      rawCert: Math.round(certRaw),
       rawAccumulations: 0,
-      rawAchievement: Math.round(achievementScore),
-      rawHardSkills: Math.round(hardSkillsRaw),
-      rawSoftSkills: Math.round(softSkillsRaw)
+      rawAchievement: 0,
+      rawHardSkills: hsCount, // Now count-based
+      rawSoftSkills: ssCount   // Now count-based
     }
   };
 };

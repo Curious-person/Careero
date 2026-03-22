@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import Image from 'next/image'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
-import { Loader2, ShieldCheck, ShieldAlert, BadgeInfo, Network, Award, LayoutDashboard, Layers, Briefcase, Users, Settings, HelpCircle, ChevronRight, Eye, UploadCloud, CheckCircle2, ChevronDown, ChevronUp, FileText, Download, Save, RefreshCw } from 'lucide-react'
+import { Loader2, ShieldCheck, ShieldAlert, BadgeInfo, Network, Award, LayoutDashboard, Layers, Briefcase, Users, CheckCircle, HelpCircle, ChevronRight, Eye, UploadCloud, CheckCircle2, ChevronDown, ChevronUp, FileText, Download, Save, RefreshCw, Activity } from 'lucide-react'
 import { toast } from "sonner"
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts'
 
@@ -41,17 +41,24 @@ export default function StudentProfilePage() {
   const [generatingResume, setGeneratingResume] = useState(false)
   const [savingResume, setSavingResume] = useState(false)
   const [isEditingResume, setIsEditingResume] = useState(false)
+  const [generatingRoadmap, setGeneratingRoadmap] = useState(false)
 
 
   useEffect(() => {
     if (profile?.resumeMarkdown) setResumeText(profile.resumeMarkdown)
   }, [profile])
 
+  const [accumulations, setAccumulations] = useState<any[]>([])
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const { data } = await apiClient.get('/profile/me')
-        setProfile(data.data)
+        const [profileRes, accumRes] = await Promise.all([
+          apiClient.get('/profile/me'),
+          apiClient.get('/accumulations/student/available').catch(() => ({ data: { data: [] } })),
+        ])
+        setProfile(profileRes.data.data)
+        setAccumulations(accumRes.data.data || [])
       } catch (err: any) {
         setError('Failed to load profile. Please complete onboarding if you haven\'t yet.')
       } finally {
@@ -95,6 +102,23 @@ export default function StudentProfilePage() {
       toast.error(err.response?.data?.message || err.message || 'Failed to save')
     } finally {
       setSavingResume(false)
+    }
+  }
+
+  const handleRegenerateRoadmap = async () => {
+    setGeneratingRoadmap(true)
+    try {
+      const res = await apiClient.post('/profile/roadmap/generate')
+      setProfile({ ...profile, careerRoadmap: res.data.data })
+      toast.success('Your Smart Career Roadmap has been updated with fresh AI insights!')
+    } catch (err: any) {
+      if (err.response?.status === 429) {
+        toast.error('AI Generation Limit Reached: You can regenerate your roadmap 10 times per hour. Please try again later.')
+      } else {
+        toast.error(err.response?.data?.message || err.message || 'Failed to regenerate roadmap.')
+      }
+    } finally {
+      setGeneratingRoadmap(false)
     }
   }
 
@@ -194,10 +218,15 @@ export default function StudentProfilePage() {
   const hardSkillsScore = profile.pointsBreakdown?.hardSkills || 0; 
   const softSkillsScore = profile.pointsBreakdown?.softSkills || 0; 
 
+  const studentFullName = `${profile.basicInfo.firstName} ${profile.basicInfo.lastName}`.trim();
+  const completedAccumList = accumulations.filter((a: any) => 
+    a.participantList?.some((p: any) => p.name === studentFullName && p.status === 'Completed')
+  );
+
   const radarData = profile ? [
     { subject: 'Academic Rating', score: profile.pointsBreakdown?.academic || 0, fullMark: 1000, desc: 'Weighted GPA from university courses.', details: profile.academicRecords.map((r: any) => ({ label: r.subject, value: `${r.grade} Grade` })) },
     { subject: 'Valid Certs', score: profile.pointsBreakdown?.cert || 0, fullMark: 1000, desc: 'Validated external credentials.', details: profile.certifications.filter((c: any) => c.verified).map((c: any) => ({ label: c.classification?.labels?.[0] || 'Verification', value: `${c.awardedPoints} pts` })) },
-    { subject: 'Accumulations', score: profile.pointsBreakdown?.accumulations || 0, fullMark: 1000, desc: 'Bounty & hackathon performance.', details: [] },
+    { subject: 'Accumulations', score: profile.pointsBreakdown?.accumulations || 0, fullMark: 1000, desc: 'Bounty & hackathon performance.', details: completedAccumList.map((a: any) => ({ label: a.title, value: `+${a.points} pts` })) },
     { subject: 'Extracurricular', score: profile.pointsBreakdown?.achievement || 0, fullMark: 1000, desc: 'Leadership & club participation awards.', details: [] },
     { subject: 'Hard Skills', score: profile.pointsBreakdown?.hardSkills || 0, fullMark: 1000, desc: `${hardSkillsCount} technical capabilities strictly mapped.`, details: profile.skillTags.filter((t: any) => t.tag && !['leadership', 'communication', 'teamwork', 'agile', 'scrum'].includes(t.tag.toLowerCase())).map((t: any) => ({ label: typeof t === 'string' ? t : t.tag, value: typeof t === 'string' ? '100%' : `${Math.round(t.confidence * 100)}% Confidence` })) },
     { subject: 'Soft Skills', score: profile.pointsBreakdown?.softSkills || 0, fullMark: 1000, desc: `${softSkillsCount} interpersonal strengths verified.`, details: profile.skillTags.filter((t: any) => t.tag && ['leadership', 'communication', 'teamwork', 'agile', 'scrum'].includes(t.tag.toLowerCase())).map((t: any) => ({ label: typeof t === 'string' ? t : t.tag, value: typeof t === 'string' ? '100%' : `${Math.round(t.confidence * 100)}% Confidence` })) }
@@ -381,21 +410,107 @@ export default function StudentProfilePage() {
                   </CardContent>
                 </Card>
 
-                {/* Company Accumulations */}
-                <Card className="rounded-[32px] shadow-sm border-gray-100 bg-black text-white h-fit">
-                  <CardHeader>
-                    <CardTitle className="text-2xl text-white">Company Accumulations</CardTitle>
-                    <CardDescription className="text-gray-400">Locked behind institutional verification.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="pb-8">
-                    <p className="text-gray-300 leading-relaxed mb-8">
-                      Participate in real-world technical bounties, hackathons, and design sprints hosted directly by partner companies tracking your Skill Graph.
-                    </p>
-                    <Button onClick={handleRestrictedAction} className="rounded-full bg-white text-black hover:bg-gray-100 w-full h-12 font-bold group">
-                      Browse Challenges <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  </CardContent>
-                </Card>
+                {/* Accumulations Tracker */}
+                {(() => {
+                  const studentName = profile?.basicInfo ? `${profile.basicInfo.firstName} ${profile.basicInfo.lastName}`.trim() : ''
+                  const myAccums = accumulations.filter(a =>
+                    a.participantList?.some((p: any) => p.name === studentName)
+                  )
+                  const inProgress = myAccums.filter(a =>
+                    a.participantList?.find((p: any) => p.name === studentName)?.status === 'In Progress'
+                  )
+                  const completed = myAccums.filter(a =>
+                    a.participantList?.find((p: any) => p.name === studentName)?.status === 'Completed'
+                  )
+
+                  return (
+                    <Card className="rounded-[32px] shadow-sm border-gray-100 bg-white h-fit overflow-hidden relative group">
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <CardTitle className="text-2xl font-bold text-black tracking-tight">Your Path Track</CardTitle>
+                            <CardDescription className="text-gray-500 font-medium mt-1">
+                              {myAccums.length === 0
+                                ? 'No accumulations yet. Start your journey.'
+                                : `${completed.length} Milestones Reached · ${inProgress.length} Active`}
+                            </CardDescription>
+                          </div>
+                          <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center border border-blue-100">
+                            <Layers className="w-5 h-5 text-blue-600" />
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pb-8 space-y-6">
+                        {myAccums.length === 0 ? (
+                          <div className="space-y-6">
+                            <p className="text-gray-500 leading-relaxed text-sm">
+                              Participate in real-world technical bounties, hackathons, and design sprints hosted directly by partner companies and your school to boost your Skill Graph.
+                            </p>
+                            <a href="/dashboard/student/accumulations" className="block">
+                              <Button className="rounded-2xl bg-blue-600 text-white hover:bg-blue-700 w-full h-12 font-bold group transition-all">
+                                Browse Challenges <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                              </Button>
+                            </a>
+                          </div>
+                        ) : (
+                          <div className="space-y-6">
+                            {inProgress.length > 0 && (
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Ongoing Experience</p>
+                                  <div className="h-px bg-gray-100 flex-1 ml-4" />
+                                </div>
+                                {inProgress.map((a: any) => (
+                                  <a key={a._id} href={`/dashboard/student/accumulations?id=${a._id}`} className="block">
+                                    <div className="group/item flex items-center justify-between bg-white hover:bg-blue-50/50 border border-gray-100 rounded-[20px] px-4 py-3.5 transition-all hover:border-blue-200">
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.3)] flex-shrink-0" />
+                                        <p className="text-sm font-bold text-gray-900 truncate group-hover/item:text-blue-700 transition-colors">{a.title}</p>
+                                      </div>
+                                      <div className="flex items-center gap-3 shrink-0 ml-3">
+                                        <span className="text-xs font-black text-blue-600">+{a.points}</span>
+                                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover/item:text-blue-400 group-hover/item:translate-x-1 transition-all" />
+                                      </div>
+                                    </div>
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                            {completed.length > 0 && (
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Successes</p>
+                                  <div className="h-px bg-gray-100 flex-1 ml-4" />
+                                </div>
+                                {completed.map((a: any) => (
+                                  <a key={a._id} href={`/dashboard/student/accumulations?id=${a._id}`} className="block">
+                                    <div className="flex items-center justify-between bg-green-50/30 hover:bg-green-50/60 border border-green-100/50 rounded-[20px] px-4 py-3.5 transition-all group/item">
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div className="w-4 h-4 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                                          <CheckCircle className="w-2.5 h-2.5 text-green-600" />
+                                        </div>
+                                        <p className="text-sm font-bold text-gray-800 truncate">{a.title}</p>
+                                      </div>
+                                      <div className="flex items-center gap-3 shrink-0 ml-3">
+                                        <span className="text-xs font-black text-green-600">+{a.points}</span>
+                                        <ChevronRight className="w-4 h-4 text-gray-300 group-hover/item:text-green-500 group-hover/item:translate-x-1 transition-all" />
+                                      </div>
+                                    </div>
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                            <a href="/dashboard/student/accumulations" className="block pt-2">
+                              <Button variant="outline" className="rounded-2xl border-gray-100 text-gray-500 hover:text-blue-600 hover:bg-blue-50/50 hover:border-blue-200 w-full font-bold h-11 transition-all shadow-sm">
+                                Open Accumulations <ChevronRight className="w-4 h-4 ml-1" />
+                              </Button>
+                            </a>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                })()}
               </motion.div>
             )}
 
@@ -510,41 +625,141 @@ export default function StudentProfilePage() {
                     <CardHeader className="p-8">
                       <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-6">
                         <div>
-                          <CardTitle className="text-2xl text-black flex items-center gap-2 mb-2">
-                            <Network className="w-6 h-6 text-blue-600" />
-                            Smart Career Roadmap
+                          <CardTitle className="text-2xl text-black flex items-center justify-between gap-2 mb-2 w-full">
+                            <div className="flex items-center gap-2">
+                              <Network className="w-6 h-6 text-blue-600" />
+                              Smart Career Roadmap
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={handleRegenerateRoadmap}
+                              disabled={generatingRoadmap}
+                              className="rounded-xl text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all gap-2 h-9 px-3"
+                            >
+                              {generatingRoadmap ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  <span className="text-[10px] font-bold uppercase tracking-widest leading-none">AI Generating...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCw className="w-3.5 h-3.5" />
+                                  <span className="text-[10px] font-bold uppercase tracking-widest leading-none">Regenerate</span>
+                                </>
+                              )}
+                            </Button>
                           </CardTitle>
                           <CardDescription className="text-base">
                             Algorithmically calculated using {profile.skillTags.length} dynamic capability strings to forge your fastest route to hire.
                           </CardDescription>
                         </div>
-                        <div className="md:text-right bg-white p-4 rounded-2xl border border-blue-100 shadow-sm min-w-[200px]">
-                          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Target Role</p>
-                          <p className="text-xl font-black text-blue-600 leading-tight">{profile.careerRoadmap.targetRole}</p>
-                          <div className="mt-2 w-full bg-blue-50 h-2 rounded-full overflow-hidden">
-                            <div className="bg-blue-600 h-full rounded-full" style={{ width: `${profile.careerRoadmap.matchPercentage}%` }} />
+                        <div className="md:text-right bg-white p-6 rounded-[24px] border border-gray-100 shadow-sm min-w-[240px]">
+                          <div className="flex items-center gap-2 justify-end mb-2">
+                            <span className="w-2 h-2 rounded-full bg-brand-blue animate-pulse" />
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Target Role</p>
                           </div>
-                          <p className="text-[10px] font-bold text-blue-800 mt-2 tracking-widest uppercase">
-                            {profile.careerRoadmap.matchPercentage}% Match Alignment
-                          </p>
+                          <p className="text-xl font-bold text-black leading-tight mb-4 tracking-tight">{profile.careerRoadmap.targetRole}</p>
+                          
+                          <div>
+                            <div className="flex justify-between items-end mb-2">
+                              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Alignment Match</span>
+                              <span className="text-xs font-bold text-brand-blue">{profile.careerRoadmap.matchPercentage}%</span>
+                            </div>
+                            <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                              <motion.div 
+                                initial={{ width: 0 }}
+                                animate={{ width: `${profile.careerRoadmap.matchPercentage}%` }}
+                                transition={{ duration: 1, ease: "easeOut" }}
+                                className="bg-brand-blue h-full rounded-full" 
+                              />
+                            </div>
+                            <p className="text-[9px] font-bold text-gray-400 mt-2 tracking-widest uppercase">
+                              Specialization Grade: {profile.careerRoadmap.matchPercentage >= 80 ? 'Expert' : profile.careerRoadmap.matchPercentage >= 50 ? 'Intermediate' : 'Foundation'}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="px-8 pb-8">
-                      <div className="space-y-4">
-                        {profile.careerRoadmap.roadmap.map((step: any, i: number) => (
-                          <div key={i} className="flex gap-6 p-6 bg-white rounded-[24px] border border-gray-100 shadow-sm relative group hover:-translate-y-1 transition-transform">
-                            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-black text-xl z-10 shadow-lg shadow-blue-600/20">
-                              {step.step}
+                    <CardContent className="px-8 pb-16">
+                      <div className="space-y-16 relative mt-6">
+                        {/* The Minimalist Connector Line */}
+                        <div className="absolute left-[20px] top-6 bottom-6 w-[1px] bg-gray-100 hidden md:block" />
+
+                        {profile.careerRoadmap.phases?.map((phase: any, phaseIdx: number) => (
+                          <motion.div 
+                            key={phaseIdx} 
+                            initial={{ opacity: 0, y: 10 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: phaseIdx * 0.1 }}
+                            className="relative"
+                          >
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.25em] mb-10 pl-0 md:pl-12">
+                              Phase {phaseIdx + 1}: {phase.name}
+                            </p>
+                            
+                            <div className="grid gap-10">
+                              {phase.nodes.map((node: any, nodeIdx: number) => (
+                                <div key={nodeIdx} className="flex gap-6 md:gap-12 relative group">
+                                  {/* Simple Modern Node Indicator */}
+                                  <div className="relative z-10 flex-shrink-0 mt-2">
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center border transition-all duration-300 ${
+                                      node.status === 'Completed' ? 'bg-white border-brand-green text-brand-green shadow-sm' :
+                                      node.status === 'Current' ? 'bg-brand-blue border-brand-blue text-white shadow-md shadow-brand-blue/20 scale-110' :
+                                      'bg-white border-gray-200 text-gray-300'
+                                    }`}>
+                                      {node.status === 'Completed' ? <CheckCircle2 className="w-5 h-5" /> :
+                                       node.status === 'Current' ? <Activity className="w-5 h-5" /> :
+                                       <Layers className="w-5 h-5" />}
+                                    </div>
+                                  </div>
+
+                                  {/* Minimalist Card */}
+                                  <div className={`flex-1 p-8 rounded-[24px] border border-gray-100 transition-all duration-300 hover:border-gray-200 hover:shadow-sm ${
+                                    node.status === 'Current' ? 'bg-blue-50/30 border-blue-100/50' : 'bg-white'
+                                  }`}>
+                                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-5">
+                                      <div>
+                                        <h4 className="font-bold text-lg text-black group-hover:text-brand-blue transition-colors">
+                                          {node.title}
+                                        </h4>
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                          <span className={`text-[9px] font-bold uppercase tracking-widest ${
+                                            node.status === 'Completed' ? 'text-brand-green' :
+                                            node.status === 'Current' ? 'text-brand-blue' :
+                                            'text-gray-400'
+                                          }`}>
+                                            {node.status}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      
+                                      <div className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border ${
+                                        node.status === 'Completed' ? 'bg-green-50/50 border-green-100 text-green-700' :
+                                        node.status === 'Current' ? 'bg-blue-600 text-white border-blue-600' :
+                                        'bg-gray-50 border-gray-100 text-gray-400'
+                                      }`}>
+                                        {node.status === 'Completed' ? 'Achieved' : node.status === 'Current' ? 'Current Goal' : 'Planned'}
+                                      </div>
+                                    </div>
+
+                                    <p className="text-gray-500 text-sm leading-relaxed mb-6 max-w-2xl">
+                                      {node.description}
+                                    </p>
+                                    
+                                    <div className="flex flex-wrap gap-2">
+                                      {node.skills.map((skill: string, sIdx: number) => (
+                                        <span key={sIdx} className="px-3 py-1 rounded-lg bg-gray-50 border border-gray-100 text-[10px] font-semibold text-gray-600">
+                                          {skill}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                            {i !== profile.careerRoadmap.roadmap.length - 1 && (
-                              <div className="absolute left-12 top-16 bottom-[-24px] w-[3px] bg-blue-100 group-hover:bg-blue-200 transition-colors" />
-                            )}
-                            <div className="pt-1">
-                              <h4 className="font-bold text-lg text-gray-900 mb-1">{step.title}</h4>
-                              <p className="text-base text-gray-500 leading-relaxed">{step.description}</p>
-                            </div>
-                          </div>
+                          </motion.div>
                         ))}
                       </div>
                     </CardContent>

@@ -64,6 +64,21 @@ router.delete('/company/:id', authorizeRoles('company'), accumulationController.
 
 /**
  * ========================================
+ * STUDENT-SPECIFIC ROUTES (Must be before /:id)
+ * ========================================
+ */
+
+// GET /api/v1/accumulations/student/available - Course-filtered accumulations for logged-in student
+router.get('/student/available', accumulationController.getStudentAccumulations);
+
+// POST /api/v1/accumulations/:id/join - Student joins an accumulation
+router.post('/:id/join', accumulationController.joinAccumulation);
+
+// POST /api/v1/accumulations/:id/complete - Student marks completion, earns points + skillTags
+router.post('/:id/complete', accumulationController.completeAccumulation);
+
+/**
+ * ========================================
  * GENERIC ROUTES (Must be last)
  * ========================================
  */

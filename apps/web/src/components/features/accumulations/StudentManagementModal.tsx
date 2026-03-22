@@ -89,8 +89,8 @@ export default function StudentManagementModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[80vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[700px] max-h-[80vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
             Manage Students - {activity.title}
@@ -100,102 +100,102 @@ export default function StudentManagementModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 flex-1 overflow-hidden">
-          {/* Search and Add */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search students..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Button
-              onClick={() => setShowAddForm(true)}
-              disabled={students.length >= activity.maxStudents}
-              className="gap-2"
-            >
-              <UserPlus className="h-4 w-4" />
-              Add Student
-            </Button>
-          </div>
-
-          {/* Add Student Form */}
-          {showAddForm && (
-            <form onSubmit={handleAddStudent} className="grid gap-3 p-4 border rounded-md bg-muted/50">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    value={newStudent.name}
-                    onChange={(e) => setNewStudent(prev => ({ ...prev, name: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newStudent.email}
-                    onChange={(e) => setNewStudent(prev => ({ ...prev, email: e.target.value }))}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="grid gap-2">
-                  <Label htmlFor="studentId">Student ID</Label>
-                  <Input
-                    id="studentId"
-                    value={newStudent.studentId}
-                    onChange={(e) => setNewStudent(prev => ({ ...prev, studentId: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="program">Program</Label>
-                  <Input
-                    id="program"
-                    value={newStudent.program}
-                    onChange={(e) => setNewStudent(prev => ({ ...prev, program: e.target.value }))}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="year">Year Level</Label>
+        <ScrollArea className="flex-1 px-6 pb-6">
+          <div className="flex flex-col gap-4">
+            {/* Search and Add */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  id="year"
-                  type="number"
-                  min="1"
-                  max="5"
-                  value={newStudent.year}
-                  onChange={(e) => setNewStudent(prev => ({ ...prev, year: parseInt(e.target.value) || 1 }))}
-                  required
+                  placeholder="Search students..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
                 />
               </div>
-              <div className="flex gap-2 justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAddForm(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" size="sm">
-                  Add Student
-                </Button>
-              </div>
-            </form>
-          )}
+              <Button
+                onClick={() => setShowAddForm(true)}
+                disabled={students.length >= activity.maxStudents}
+                className="gap-2"
+              >
+                <UserPlus className="h-4 w-4" />
+                Add Student
+              </Button>
+            </div>
 
-          {/* Students List */}
-          <ScrollArea className="flex-1 max-h-[400px]">
+            {/* Add Student Form */}
+            {showAddForm && (
+              <form onSubmit={handleAddStudent} className="grid gap-3 p-4 border rounded-md bg-muted/50">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Name</Label>
+                    <Input
+                      id="name"
+                      value={newStudent.name}
+                      onChange={(e) => setNewStudent(prev => ({ ...prev, name: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newStudent.email}
+                      onChange={(e) => setNewStudent(prev => ({ ...prev, email: e.target.value }))}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-2">
+                    <Label htmlFor="studentId">Student ID</Label>
+                    <Input
+                      id="studentId"
+                      value={newStudent.studentId}
+                      onChange={(e) => setNewStudent(prev => ({ ...prev, studentId: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="program">Program</Label>
+                    <Input
+                      id="program"
+                      value={newStudent.program}
+                      onChange={(e) => setNewStudent(prev => ({ ...prev, program: e.target.value }))}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="year">Year Level</Label>
+                  <Input
+                    id="year"
+                    type="number"
+                    min="1"
+                    max="5"
+                    value={newStudent.year}
+                    onChange={(e) => setNewStudent(prev => ({ ...prev, year: parseInt(e.target.value) || 1 }))}
+                    required
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAddForm(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" size="sm">
+                    Add Student
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {/* Students List */}
             <div className="space-y-2">
               {filteredStudents.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
@@ -255,8 +255,8 @@ export default function StudentManagementModal({
                 ))
               )}
             </div>
-          </ScrollArea>
-        </div>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   )

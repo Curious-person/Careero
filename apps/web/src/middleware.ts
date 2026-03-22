@@ -49,7 +49,7 @@ export function middleware(request: NextRequest) {
       const payload = JSON.parse(Buffer.from(payloadBase64, 'base64').toString());
       if (payload.role === 'student') return NextResponse.redirect(new URL('/dashboard/student', request.url));
       if (payload.role === 'school') return NextResponse.redirect(new URL('/dashboard/school', request.url));
-      if (payload.role === 'company') return NextResponse.redirect(new URL('/dashboard/company/dashboard', request.url));
+      if (payload.role === 'company') return NextResponse.redirect(new URL('/dashboard/company', request.url));
     } catch (e) {
       // ignore
     }

@@ -323,10 +323,10 @@ export default function CompanyDashboardPage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <QuickAction title="View Students" icon={Users} href="/company/students" />
-                                    <QuickAction title="Assessments" icon={BarChart3} href="/company/assessments" />
-                                    <QuickAction title="Messages" icon={MessageSquare} href="/company/messages" />
-                                    <QuickAction title="Campaigns" icon={Target} href="/company/campaigns" />
+                                    <QuickAction title="Applicants" icon={Users} href="/dashboard/company/applicants" />
+                                    <QuickAction title="Team & Roles" icon={BarChart3} href="/dashboard/company/team" />
+                                    <QuickAction title="Accumulations" icon={MessageSquare} href="/dashboard/company/accumulations" />
+                                    <QuickAction title="Settings" icon={Target} href="/dashboard/company/settings" />
                                 </div>
                             </CardContent>
                         </Card>

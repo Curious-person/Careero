@@ -21,23 +21,22 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { 
+import {
   Accumulation,
   AccumType,
   type CreateAccumulationInput,
   type CreateAccumulationFormData,
-  type Challenge,
   type Module,
   type AgendaItem,
   type Task,
 } from "@/lib/accumulationsApi"
-import { 
-  Plus, 
-  Calendar, 
-  Target, 
-  Users, 
-  FileText, 
-  Tag, 
+import {
+  Plus,
+  Calendar,
+  Target,
+  Users,
+  FileText,
+  Tag,
   Link as LinkIcon,
   CheckCircle,
   Trash2,
@@ -54,7 +53,6 @@ interface CompanyAccumulationFormProps {
 
 const accumTypes: { value: AccumType; label: string }[] = [
   { value: 'Task', label: 'Task' },
-  { value: 'Challenge', label: 'Challenge' },
   { value: 'Course', label: 'Course' },
   { value: 'Event', label: 'Event' },
 ]
@@ -66,14 +64,9 @@ const popularSkills = [
 ]
 
 const popularCourses = [
-  'Computer Science',
-  'Information Technology',
-  'Software Engineering',
-  'Data Science',
-  'Business Administration',
-  'Marketing',
-  'Finance',
-  'Human Resources'
+  { label: 'Information Technology', value: 'BSIT' },
+  { label: 'Computer Science', value: 'BSCS' },
+  { label: 'Business Administration', value: 'BSBA' },
 ]
 
 export default function CompanyAccumulationForm({
@@ -85,17 +78,15 @@ export default function CompanyAccumulationForm({
   const [internalOpen, setInternalOpen] = useState(false)
   const [formData, setFormData] = useState<CreateAccumulationFormData>({
     title: initialData?.title || '',
-    type: initialData?.type || 'Challenge',
+    type: initialData?.type || 'Task',
     courses: initialData?.courses || [],
     deadline: initialData?.deadline ? initialData.deadline.split('T')[0] : '',
     duration: initialData?.duration || '',
-    points: initialData?.points || 100,
     description: initialData?.description || '',
     skillTags: initialData?.skillTags || [],
     resourceLink: initialData?.resourceLink || '',
     objectives: initialData?.objectives || [],
     inCharge: initialData?.inCharge || [],
-    challenges: initialData?.challenges || [],
     modules: initialData?.modules || [],
     agenda: initialData?.agenda || [],
     tasks: initialData?.tasks || [],
@@ -111,12 +102,20 @@ export default function CompanyAccumulationForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
-    // Validation
-    if (formData.type === 'Challenge' && !formData.challenges?.length) {
-      alert('At least one challenge is required')
+
+    // Validate resource link
+    if (!formData.resourceLink?.trim()) {
+      alert('Resource link is required')
       return
     }
+    try {
+      new URL(formData.resourceLink)
+    } catch {
+      alert('Please enter a valid URL for the resource link (e.g., https://example.com)')
+      return
+    }
+
+    // Validation for type-specific fields
     if (formData.type === 'Course' && !formData.modules?.length) {
       alert('At least one module is required')
       return
@@ -132,22 +131,20 @@ export default function CompanyAccumulationForm({
 
     onSubmit(formData)
     onOpenChange(false)
-    
+
     // Reset form if not editing
     if (!initialData) {
       setFormData({
         title: '',
-        type: 'Challenge',
+        type: 'Task',
         courses: [],
         deadline: '',
         duration: '',
-        points: 100,
         description: '',
         skillTags: [],
         resourceLink: '',
         objectives: [],
         inCharge: [],
-        challenges: [],
         modules: [],
         agenda: [],
         tasks: [],
@@ -192,27 +189,6 @@ export default function CompanyAccumulationForm({
   }
 
   // Type-specific item handlers
-  const addChallenge = () => {
-    setFormData(prev => ({
-      ...prev,
-      challenges: [...(prev.challenges || []), { title: '', description: '' }]
-    }))
-  }
-
-  const updateChallenge = (index: number, field: keyof Challenge, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      challenges: prev.challenges?.map((c, i) => i === index ? { ...c, [field]: value } : c)
-    }))
-  }
-
-  const removeChallenge = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      challenges: prev.challenges?.filter((_, i) => i !== index)
-    }))
-  }
-
   const addModule = () => {
     setFormData(prev => ({
       ...prev,
@@ -356,13 +332,12 @@ export default function CompanyAccumulationForm({
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="points">Points</Label>
+                <Label htmlFor="duration">Duration</Label>
                 <Input
-                  id="points"
-                  type="number"
-                  min="1"
-                  value={formData.points}
-                  onChange={(e) => setFormData(prev => ({ ...prev, points: parseInt(e.target.value) || 0 }))}
+                  id="duration"
+                  placeholder="e.g., 3 months, 2 weeks"
+                  value={formData.duration}
+                  onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
                   required
                 />
               </div>
@@ -381,14 +356,10 @@ export default function CompanyAccumulationForm({
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="duration">Duration</Label>
-                <Input
-                  id="duration"
-                  placeholder="e.g., 3 months, 2 weeks"
-                  value={formData.duration}
-                  onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
-                  required
-                />
+                <Label htmlFor="points-info">Points</Label>
+                <div id="points-info" className="flex items-center h-10 px-3 border rounded-md bg-muted text-sm text-muted-foreground">
+                  Auto-calculated
+                </div>
               </div>
             </div>
 
@@ -402,8 +373,8 @@ export default function CompanyAccumulationForm({
                   </SelectTrigger>
                   <SelectContent>
                     {popularCourses.map((course) => (
-                      <SelectItem key={course} value={course}>
-                        {course}
+                      <SelectItem key={course.value} value={course.value}>
+                        {course.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -460,15 +431,17 @@ export default function CompanyAccumulationForm({
             <div className="grid gap-2">
               <Label htmlFor="resourceLink" className="flex items-center gap-2">
                 <LinkIcon className="h-4 w-4" />
-                Resource Link (optional)
+                Resource Link <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="resourceLink"
                 type="url"
-                placeholder="https://..."
+                placeholder="https://example.com/resource"
                 value={formData.resourceLink}
                 onChange={(e) => setFormData(prev => ({ ...prev, resourceLink: e.target.value }))}
+                required
               />
+              <p className="text-xs text-muted-foreground">Enter a valid URL (e.g., https://example.com)</p>
             </div>
 
             {/* Objectives */}
@@ -540,37 +513,6 @@ export default function CompanyAccumulationForm({
             </div>
 
             {/* Type-specific sections */}
-            {formData.type === 'Challenge' && (
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Target className="h-4 w-4" />
-                  Challenges
-                </Label>
-                {formData.challenges?.map((challenge, idx) => (
-                  <div key={idx} className="p-3 border rounded-md space-y-2">
-                    <Input
-                      placeholder="Challenge title"
-                      value={challenge.title}
-                      onChange={(e) => updateChallenge(idx, 'title', e.target.value)}
-                    />
-                    <Textarea
-                      placeholder="Challenge description"
-                      value={challenge.description}
-                      onChange={(e) => updateChallenge(idx, 'description', e.target.value)}
-                      className="min-h-[60px]"
-                    />
-                    <Button type="button" variant="ghost" size="sm" onClick={() => removeChallenge(idx)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-                <Button type="button" variant="outline" size="sm" onClick={addChallenge}>
-                  <Plus className="h-4 w-4" />
-                  Add Challenge
-                </Button>
-              </div>
-            )}
-
             {formData.type === 'Course' && (
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">

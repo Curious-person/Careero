@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import DashboardLayout from "@/components/layouts/DashboardLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,27 +9,111 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Building2, Users, Target, Mail, Phone, Globe, MapPin, Save, Plus, X, Camera, Upload } from "lucide-react"
+import { Building2, Users, Target, Mail, Phone, Globe, MapPin, Save, Plus, X, Camera, Upload, CheckCircle2, AlertCircle } from "lucide-react"
+import { getCompanyDetails, updateCompanyProfile } from "@/lib/companyApi"
+import { ICompanyDetails, ITargetStudentInput } from "@/types/company"
+
+interface TargetStudent {
+    id: string
+    field: string
+    level: string
+    skills: string[]
+}
 
 export default function CompanyProfilePage() {
     const fileInputRef = useRef<HTMLInputElement>(null)
 
+    // Loading and save states
+    const [loading, setLoading] = useState(true)
+    const [saving, setSaving] = useState(false)
+    const [saveSuccess, setSaveSuccess] = useState(false)
+    const [saveError, setSaveError] = useState<string | null>(null)
+
+    // Original data for tracking changes
+    const [originalData, setOriginalData] = useState<{
+        name: string
+        industry: string
+        size: string
+        founded: string
+        description: string
+        website: string
+        email: string
+        phone: string
+        address: string
+        logo: string
+    } | null>(null)
+
     // Company profile state
     const [companyData, setCompanyData] = useState({
-        name: "TechCorp Solutions",
-        industry: "Technology",
-        size: "50-200 employees",
-        founded: "2015",
-        description: "We are a leading technology company focused on innovative solutions for businesses worldwide.",
-        website: "https://www.techcorp.com",
-        email: "contact@techcorp.com",
-        phone: "+1 (555) 123-4567",
-        address: "123 Business Ave, Tech City, TC 12345",
+        name: "",
+        industry: "",
+        size: "",
+        founded: "",
+        description: "",
+        website: "",
+        email: "",
+        phone: "",
+        address: "",
         logo: "",
     })
 
     const [previewUrl, setPreviewUrl] = useState<string>("")
     const [isUploading, setIsUploading] = useState(false)
+    const [logoChanged, setLogoChanged] = useState(false)
+
+    // Target students state
+    const [targetStudents, setTargetStudents] = useState<TargetStudent[]>([])
+    const [originalTargetStudents, setOriginalTargetStudents] = useState<TargetStudent[]>([])
+
+    const [newStudentField, setNewStudentField] = useState({
+        field: "",
+        level: "",
+        skills: "",
+    })
+
+    // Fetch company data on mount
+    useEffect(() => {
+        const fetchCompanyData = async () => {
+            try {
+                const response = await getCompanyDetails()
+                const { company } = response.data
+
+                const data = {
+                    name: company.name,
+                    industry: company.industry,
+                    size: company.size,
+                    founded: company.founded,
+                    description: company.description,
+                    website: company.website || "",
+                    email: company.email,
+                    phone: company.phone || "",
+                    address: company.address || "",
+                    logo: company.logo || "",
+                }
+
+                setCompanyData(data)
+                setOriginalData(data)
+                setPreviewUrl(company.logo || "")
+
+                // Transform target students
+                const students = company.targetStudents.map((s, idx) => ({
+                    id: s._id || `temp-${idx}`,
+                    field: s.field,
+                    level: s.level,
+                    skills: s.skills,
+                }))
+                setTargetStudents(students)
+                setOriginalTargetStudents(students)
+            } catch (error) {
+                console.error('Failed to fetch company data:', error)
+                setSaveError('Failed to load company data')
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchCompanyData()
+    }, [])
 
     const handleLogoClick = () => {
         fileInputRef.current?.click()
@@ -52,29 +136,15 @@ export default function CompanyProfilePage() {
             // Create preview URL
             const reader = new FileReader()
             reader.onloadend = () => {
-                setPreviewUrl(reader.result as string)
-                setCompanyData(prev => ({ ...prev, logo: reader.result as string }))
+                const result = reader.result as string
+                setPreviewUrl(result)
+                setCompanyData(prev => ({ ...prev, logo: result }))
+                setLogoChanged(true)
                 setIsUploading(false)
             }
             reader.readAsDataURL(file)
-
-            // TODO: Implement API call to upload logo
-            console.log("Uploading logo:", file)
         }
     }
-
-    // Target students state
-    const [targetStudents, setTargetStudents] = useState([
-        { id: 1, field: "Computer Science", level: "Bachelor's", skills: ["JavaScript", "React", "Node.js"] },
-        { id: 2, field: "Software Engineering", level: "Master's", skills: ["Python", "Machine Learning", "Data Science"] },
-        { id: 3, field: "Information Technology", level: "Bachelor's", skills: ["Network Security", "Cloud Computing"] },
-    ])
-
-    const [newStudentField, setNewStudentField] = useState({
-        field: "",
-        level: "",
-        skills: "",
-    })
 
     const handleCompanyChange = (field: string, value: string) => {
         setCompanyData(prev => ({ ...prev, [field]: value }))
@@ -85,7 +155,7 @@ export default function CompanyProfilePage() {
             setTargetStudents(prev => [
                 ...prev,
                 {
-                    id: Date.now(),
+                    id: `temp-${Date.now()}`,
                     field: newStudentField.field,
                     level: newStudentField.level,
                     skills: newStudentField.skills.split(",").map(s => s.trim()).filter(Boolean),
@@ -95,14 +165,77 @@ export default function CompanyProfilePage() {
         }
     }
 
-    const handleRemoveTargetStudent = (id: number) => {
+    const handleRemoveTargetStudent = (id: string) => {
         setTargetStudents(prev => prev.filter(student => student.id !== id))
     }
 
-    const handleSave = () => {
-        // TODO: Implement API call to save company data
-        console.log("Saving company data:", companyData)
-        console.log("Saving target students:", targetStudents)
+    // Helper to detect changed fields
+    const getChangedFields = () => {
+        const changed: Record<string, unknown> = {}
+
+        if (originalData) {
+            // Check each field for changes
+            const fields: (keyof typeof companyData)[] = [
+                'name', 'industry', 'size', 'founded', 'description',
+                'website', 'email', 'phone', 'address'
+            ]
+
+            for (const field of fields) {
+                if (companyData[field] !== originalData[field]) {
+                    changed[field] = companyData[field]
+                }
+            }
+
+            // Check logo separately
+            if (logoChanged && companyData.logo) {
+                changed.logo = companyData.logo
+            }
+        }
+
+        // Check target students for changes
+        const studentsChanged = JSON.stringify(targetStudents) !== JSON.stringify(originalTargetStudents)
+        if (studentsChanged) {
+            // Convert to API format (without id)
+            changed.targetStudents = targetStudents.map(({ id, ...rest }) => ({
+                field: rest.field,
+                level: rest.level,
+                skills: rest.skills,
+            })) as ITargetStudentInput[]
+        }
+
+        return changed
+    }
+
+    const handleSave = async () => {
+        setSaving(true)
+        setSaveSuccess(false)
+        setSaveError(null)
+
+        try {
+            const changedFields = getChangedFields()
+
+            if (Object.keys(changedFields).length === 0) {
+                setSaveError('No changes to save')
+                setSaving(false)
+                return
+            }
+
+            await updateCompanyProfile(changedFields)
+
+            // Update original data to match current data
+            setOriginalData({ ...companyData })
+            setOriginalTargetStudents([...targetStudents])
+            setLogoChanged(false)
+            setSaveSuccess(true)
+
+            // Clear success message after 3 seconds
+            setTimeout(() => setSaveSuccess(false), 3000)
+        } catch (error) {
+            console.error('Failed to save company data:', error)
+            setSaveError(error instanceof Error ? error.message : 'Failed to save changes')
+        } finally {
+            setSaving(false)
+        }
     }
 
     return (
@@ -116,14 +249,34 @@ export default function CompanyProfilePage() {
                             Manage your company information and target student preferences.
                         </p>
                     </div>
-                    <Button onClick={handleSave} className="gap-2">
-                        <Save className="h-4 w-4" />
-                        Save Changes
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        {saveSuccess && (
+                            <div className="flex items-center gap-2 text-sm text-green-600">
+                                <CheckCircle2 className="h-4 w-4" />
+                                <span>Saved successfully!</span>
+                            </div>
+                        )}
+                        {saveError && (
+                            <div className="flex items-center gap-2 text-sm text-red-600">
+                                <AlertCircle className="h-4 w-4" />
+                                <span>{saveError}</span>
+                            </div>
+                        )}
+                        <Button onClick={handleSave} className="gap-2" disabled={saving || loading}>
+                            <Save className="h-4 w-4" />
+                            {saving ? "Saving..." : "Save Changes"}
+                        </Button>
+                    </div>
                 </div>
 
-                {/* Tabs Navigation */}
-                <Tabs defaultValue="profile" className="space-y-6">
+                {loading ? (
+                    <div className="flex items-center justify-center h-64">
+                        <p className="text-muted-foreground">Loading company data...</p>
+                    </div>
+                ) : (
+                    <>
+                        {/* Tabs Navigation */}
+                        <Tabs defaultValue="profile" className="space-y-6">
                     <TabsList className="grid w-full md:w-auto grid-cols-2">
                         <TabsTrigger value="profile" className="gap-2">
                             <Building2 className="h-4 w-4" />
@@ -468,6 +621,8 @@ export default function CompanyProfilePage() {
                         </Card>
                     </TabsContent>
                 </Tabs>
+                    </>
+                )}
             </div>
         </DashboardLayout>
     )

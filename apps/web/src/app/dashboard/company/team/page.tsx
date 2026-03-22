@@ -31,6 +31,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
     getRoles,
+    getCompanyRolesWithApplicants,
     getRoleStats,
     createRole as apiCreateRole,
     deleteRole as apiDeleteRole,
@@ -48,14 +49,23 @@ import {
 type Role = ApiRole;
 
 interface Student {
-    id: string;
+    _id: string;
+    id?: string;
     name: string;
     email: string;
-    school: string;
-    major: string;
-    appliedDate: string;
-    status: "pending" | "interview" | "accepted" | "rejected";
+    school?: string;
+    major?: string;
+    appliedDate?: string;
+    status?: "pending" | "interview" | "accepted" | "rejected";
     avatar?: string;
+    basicInfo?: {
+        firstName?: string;
+        lastName?: string;
+        course?: string;
+        yearLevel?: string;
+    };
+    skillTags?: { tag: string; confidence: number }[];
+    totalPoints?: number;
 }
 
 // Mock activities removed - now fetching from API
@@ -195,7 +205,7 @@ export default function TeamRolesPage() {
             setIsLoading(true);
             setError(null);
             const [rolesResponse, statsResponse, accumulationsResponse] = await Promise.all([
-                getRoles(searchQuery),
+                getCompanyRolesWithApplicants(),
                 getRoleStats(),
                 getCompanyAccumulations(),
             ]);
@@ -211,7 +221,7 @@ export default function TeamRolesPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [searchQuery]);
+    }, []);
 
     useEffect(() => {
         fetchData();
@@ -247,11 +257,11 @@ export default function TeamRolesPage() {
             });
             const newRole = transformRole(response.role);
             setRoles(prev => [newRole, ...prev]);
-            
+
             // Refresh stats
             const statsResponse = await getRoleStats();
             setStats(statsResponse.stats);
-            
+
             setError(null);
             setIsCreateModalOpen(false);
         } catch (err: any) {
@@ -270,11 +280,11 @@ export default function TeamRolesPage() {
         try {
             await apiDeleteRole(roleId);
             setRoles(prev => prev.filter(r => r.id !== roleId));
-            
+
             // Refresh stats
             const statsResponse = await getRoleStats();
             setStats(statsResponse.stats);
-            
+
             setError(null);
         } catch (err: any) {
             console.error('Failed to delete role:', err);
@@ -309,8 +319,8 @@ export default function TeamRolesPage() {
                             Manage your open positions and accepted candidates
                         </p>
                     </div>
-                    <Button 
-                        className="gap-2" 
+                    <Button
+                        className="gap-2"
                         onClick={() => setIsCreateModalOpen(true)}
                         disabled={isLoading}
                     >
@@ -476,7 +486,7 @@ export default function TeamRolesPage() {
             {isStudentsModalOpen && selectedRole && (
                 <StudentsModal
                     role={selectedRole}
-                    students={[]}
+                    students={selectedRole.appliedStudents || []}
                     onClose={() => {
                         setIsStudentsModalOpen(false);
                         setSelectedRole(null);
@@ -617,7 +627,7 @@ function RoleRow({
                         onClick={onViewStudents}
                     >
                         <Users className="h-3 w-3 mr-1" />
-                        {role.accepted} Accepted
+                        {role.applicants} Applicants
                     </Button>
                     <div className="relative group">
                         <button className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors">
@@ -1193,8 +1203,8 @@ function CreateRoleModal({ onClose, onSubmit, isSubmitting = false, accumulation
                                     <Plus className="h-4 w-4 rotate-90" />
                                 </Button>
                             ) : (
-                                <Button 
-                                    type="submit" 
+                                <Button
+                                    type="submit"
                                     className="gap-2"
                                     disabled={isSubmitting}
                                 >
@@ -1228,6 +1238,33 @@ function StudentsModal({
     students: Student[];
     onClose: () => void;
 }) {
+    // Debug: Log applied students data
+    React.useEffect(() => {
+        console.log("╔══════════════════════════════════════════════════════════╗");
+        console.log("║           APPLICANTS MODAL - STUDENTS DATA               ║");
+        console.log("╚══════════════════════════════════════════════════════════╝");
+        console.log("📋 Role Title:", role.title);
+        console.log("👥 Total Students Count:", students.length);
+        console.log("📊 Full Students Array:", students);
+
+        if (students.length > 0) {
+            console.log("🔍 Individual Students:");
+            students.forEach((student, idx) => {
+                console.log(`\n  ─ Student ${idx + 1}:`);
+                console.log(`    _id: ${student._id}`);
+                console.log(`    name: ${student.name}`);
+                console.log(`    email: ${student.email}`);
+                console.log(`    basicInfo:`, student.basicInfo);
+                console.log(`    skillTags:`, student.skillTags);
+                console.log(`    totalPoints: ${student.totalPoints}`);
+                console.log(`    status: ${student.status}`);
+            });
+        } else {
+            console.log("⚠️  No students found");
+        }
+        console.log("═══════════════════════════════════════════════════════════");
+    }, [students, role.title]);
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div
@@ -1237,8 +1274,8 @@ function StudentsModal({
             <div className="relative bg-white rounded-[20px] w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
                 <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
                     <div>
-                        <h2 className="text-xl font-bold">Accepted Candidates</h2>
-                        <p className="text-sm text-muted-foreground">{role.title}</p>
+                        <h2 className="text-xl font-bold">Applicants</h2>
+                        <p className="text-sm text-muted-foreground">All applied students for {role.title}</p>
                     </div>
                     <button
                         onClick={onClose}
@@ -1250,56 +1287,80 @@ function StudentsModal({
                 <div className="p-6">
                     {students.length > 0 ? (
                         <div className="space-y-4">
-                            {students.map((student) => (
-                                <div
-                                    key={student.id}
-                                    className="flex items-start justify-between p-4 rounded-[16px] border border-gray-100 hover:bg-gray-50/50 transition-colors"
-                                >
-                                    <div className="flex items-start gap-4">
-                                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                            <span className="text-sm font-medium text-primary">
-                                                {student.name.split(" ").map((n) => n[0]).join("")}
-                                            </span>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="font-semibold">{student.name}</p>
-                                            <p className="text-sm text-muted-foreground">{student.email}</p>
-                                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                                <span>{student.school}</span>
-                                                <span>•</span>
-                                                <span>{student.major}</span>
+                            {students.map((student) => {
+                                console.log("🎯 Rendering student:", {
+                                    id: student._id,
+                                    name: student.name,
+                                    email: student.email,
+                                    totalPoints: student.totalPoints,
+                                    skillTags: student.skillTags
+                                });
+                                return (
+                                    <div
+                                        key={student.id}
+                                        className="flex items-start justify-between p-4 rounded-[16px] border border-gray-100 hover:bg-gray-50/50 transition-colors"
+                                    >
+                                        <div className="flex items-start gap-4">
+                                            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                                <span className="text-sm font-medium text-primary">
+                                                    {(student.name || student.basicInfo?.firstName || "?").split(" ").map((n: string) => n[0]).join("").toUpperCase()}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="font-semibold">{student.name || `${student.basicInfo?.firstName || ""} ${student.basicInfo?.lastName || ""}`.trim() || "Unknown"}</p>
+                                                <p className="text-sm text-muted-foreground">{student.email || "No email"}</p>
+                                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                                    <span>{student.basicInfo?.course || student.school || "No course"}</span>
+                                                    <span>•</span>
+                                                    <span>{student.basicInfo?.yearLevel || student.major || "No year"}</span>
+                                                </div>
+                                                {student.skillTags && student.skillTags.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1 mt-2">
+                                                        {student.skillTags.slice(0, 3).map((skill: any, idx: number) => (
+                                                            <span key={idx} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
+                                                                {skill.tag}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span
-                                            className={cn(
-                                                "text-xs px-3 py-1 rounded-full font-medium capitalize",
-                                                getStudentStatusColor(student.status)
+                                        <div className="flex items-center gap-3">
+                                            {student.totalPoints && (
+                                                <div className="text-center">
+                                                    <p className="text-xs text-muted-foreground">Points</p>
+                                                    <p className="text-sm font-semibold">{student.totalPoints}</p>
+                                                </div>
                                             )}
-                                        >
-                                            {student.status}
-                                        </span>
-                                        <Button variant="outline" size="sm" className="h-8 text-xs">
-                                            View Profile
-                                        </Button>
+                                            <span
+                                                className={cn(
+                                                    "text-xs px-3 py-1 rounded-full font-medium capitalize",
+                                                    getStudentStatusColor(student.status || "pending")
+                                                )}
+                                            >
+                                                {student.status || "pending"}
+                                            </span>
+                                            <Button variant="outline" size="sm" className="h-8 text-xs">
+                                                View Profile
+                                            </Button>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     ) : (
                         <div className="text-center py-12">
                             <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                            <h3 className="text-lg font-semibold text-foreground mb-2">No accepted candidates yet</h3>
+                            <h3 className="text-lg font-semibold text-foreground mb-2">No applicants yet</h3>
                             <p className="text-muted-foreground">
-                                Once students apply and are accepted for this role, they will appear here.
+                                Once students apply for this role, they will appear here.
                             </p>
                         </div>
                     )}
                 </div>
                 <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">
-                        {students.length} accepted out of {role.openings} openings
+                        {students.length} total applicants
                     </p>
                     <Button variant="outline" onClick={onClose}>
                         Close

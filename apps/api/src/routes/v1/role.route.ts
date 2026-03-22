@@ -10,6 +10,9 @@ router.use(authenticateToken);
 // GET /api/v1/roles/stats - Get role statistics
 router.get('/stats', roleController.getRoleStats);
 
+// GET /api/v1/roles/company/applicants - Get all company roles with applied students populated
+router.get('/company/applicants', roleController.getCompanyRolesWithApplicants);
+
 // GET /api/v1/roles - Get all roles for the company
 router.get('/', roleController.getRoles);
 

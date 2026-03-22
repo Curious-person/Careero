@@ -32,8 +32,12 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.logout = exports.login = exports.register = exports.verifyOtp = exports.requestOtp = exports.checkEmail = void 0;
+exports.getMe = exports.logout = exports.login = exports.register = exports.verifyOtp = exports.requestOtp = exports.checkEmail = void 0;
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const authService = __importStar(require("../services/auth.service"));
 const setAuthCookies = (res, jwtToken, deviceToken) => {
     res.cookie('jwt', jwtToken, {
@@ -123,3 +127,51 @@ const logout = async (req, res, next) => {
     }
 };
 exports.logout = logout;
+/**
+ * GET /api/v1/auth/me
+ * Returns the authenticated user's email, role, and display name.
+ * Resolves the display name from the role-specific profile.
+ */
+const getMe = async (req, res, next) => {
+    try {
+        const token = req.cookies?.jwt;
+        if (!token)
+            return res.status(401).json({ message: 'Unauthorized' });
+        const decoded = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.id;
+        const { User } = await Promise.resolve().then(() => __importStar(require('../models/User')));
+        const user = await User.findById(userId).lean();
+        if (!user)
+            return res.status(404).json({ message: 'User not found' });
+        let displayName = user.email.split('@')[0]; // fallback: email prefix
+        // Resolve name from role-specific profile
+        if (user.role === 'student') {
+            const { StudentProfile } = await Promise.resolve().then(() => __importStar(require('../models/StudentProfile')));
+            const profile = await StudentProfile.findOne({ user: userId }).lean();
+            if (profile && profile.basicInfo?.firstName) {
+                const { firstName, lastName } = profile.basicInfo;
+                displayName = `${firstName} ${lastName}`.trim();
+            }
+        }
+        else if (user.role === 'company') {
+            const { CompanyProfile } = await Promise.resolve().then(() => __importStar(require('../models/CompanyProfile')));
+            const profile = await CompanyProfile.findOne({ user: userId }).lean();
+            if (profile && profile.companyName) {
+                displayName = profile.companyName;
+            }
+        }
+        else if (user.role === 'school') {
+            // School users typically just have the email as identifier
+            displayName = user.email.split('@')[0];
+        }
+        return res.json({
+            email: user.email,
+            role: user.role,
+            displayName,
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getMe = getMe;

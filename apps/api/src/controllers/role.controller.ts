@@ -113,8 +113,14 @@ export const createRole = async (req: AuthRequest, res: Response, next: NextFunc
     console.log('   - Skill Count:', breakdown.skillCount);
     console.log('   - Complexity Multiplier: ×' + breakdown.complexityMultiplier.toFixed(2));
     console.log('📅 Accumulation Points:', breakdown.accumulationPoints);
-    console.log('   - Total Accumulation Points:', breakdown.totalAccumulationPoints);
+    console.log('   - Weighted Accumulation Points:', breakdown.totalAccumulationPoints);
     console.log('   - Weight Applied: ×0.5 (50%)');
+    console.log('   - Accumulation Count:', breakdown.accumulationCount);
+    if (breakdown.typeBreakdown) {
+      console.log('   - Types:', Object.entries(breakdown.typeBreakdown)
+        .map(([type, count]) => `${type} (${count})`)
+        .join(', '));
+    }
     console.log('🎯 TOTAL POINTS:', totalPoints);
     console.log('═══════════════════════════════════════════════════════════');
 
@@ -410,6 +416,66 @@ export const applyForRole = async (req: AuthRequest, res: Response, next: NextFu
     await role.save();
 
     res.json({ message: 'Application submitted successfully', role });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/v1/roles/company/applicants
+ * Get all company roles with applied students populated
+ */
+export const getCompanyRolesWithApplicants = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const companyId = req.user?.id;
+    if (!companyId) {
+      return res.status(401).json({ message: 'Unauthorized: Company ID required' });
+    }
+
+    // Get all roles for the company with appliedStudents populated
+    const roles = await Role.find({ company: companyId })
+      .populate('appliedStudents', 'email basicInfo skillTags totalPoints')
+      .sort({ postedDate: -1 });
+
+    // Transform roles to include applicant details
+    const rolesWithApplicants = roles.map(role => {
+      const appliedStudents = (role.appliedStudents || []).map((student: any) => ({
+        _id: student._id,
+        email: student.email,
+        name: student.basicInfo?.firstName && student.basicInfo?.lastName
+          ? `${student.basicInfo.firstName} ${student.basicInfo.lastName}`
+          : student.email.split('@')[0],
+        basicInfo: student.basicInfo,
+        skillTags: student.skillTags,
+        totalPoints: student.totalPoints,
+      }));
+
+      return {
+        _id: role._id,
+        title: role.title,
+        department: role.department,
+        location: role.location,
+        type: role.type,
+        openings: role.openings,
+        applicants: role.applicants,
+        accepted: role.accepted,
+        status: role.status,
+        salaryMin: role.salaryMin,
+        salaryMax: role.salaryMax,
+        salaryPeriod: role.salaryPeriod,
+        description: role.description,
+        skills: role.skills,
+        accumulationIds: role.accumulationIds,
+        points: role.points,
+        postedDate: role.postedDate,
+        appliedStudents: appliedStudents,
+      };
+    });
+
+    res.json({
+      roles: rolesWithApplicants,
+      count: rolesWithApplicants.length,
+    });
   } catch (error) {
     next(error);
   }

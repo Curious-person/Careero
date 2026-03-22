@@ -27,8 +27,6 @@ const getAccumTypeColor = (type: Accumulation['type']) => {
   switch (type) {
     case 'Task':
       return 'bg-blue-100 text-blue-700'
-    case 'Challenge':
-      return 'bg-purple-100 text-purple-700'
     case 'Course':
       return 'bg-green-100 text-green-700'
     case 'Event':
@@ -64,8 +62,6 @@ const getTypeIcon = (type: Accumulation['type']) => {
   switch (type) {
     case 'Task':
       return Briefcase
-    case 'Challenge':
-      return Target
     case 'Course':
       return TrendingUp
     case 'Event':

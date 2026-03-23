@@ -784,7 +784,7 @@ export default function AccumulationsPage({
   }
 
   const filtered = (accums ?? []).filter(a => 
-    a.source === tab && 
+    (tab === 'school' ? a.source === 'school' : a.createdBy === 'company') && 
     (statusFilter === 'all' || a.status === statusFilter) &&
     (a.title.toLowerCase().includes(search.toLowerCase()) ||
      a.description.toLowerCase().includes(search.toLowerCase()) ||

@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { CompanyProfile, ICompanyProfile } from '../models/CompanyProfile';
 import { User, IUser } from '../models/User';
+import { Role } from '../models/Role';
+import { Accumulation } from '../models/Accumulation';
 import { AuthRequest, requireCompanyProfile } from '../middlewares/auth.middleware';
 
 interface ExtendedAuthRequest extends Request {
@@ -493,6 +495,31 @@ export const getAllCompanyProfiles = async (req: Request, res: Response, next: N
   try {
     const profiles = await CompanyProfile.find({}).select('-user').lean();
     res.json({ message: 'Company profiles retrieved successfully', profiles });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get open roles and accumulations for a company profile (for school dashboard)
+ * GET /api/v1/company/profiles/:id/details
+ */
+export const getCompanyProfileDetails = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const profile = await CompanyProfile.findById(id).lean();
+    if (!profile) return res.status(404).json({ message: 'Company profile not found' });
+
+    const [roles, accumulations] = await Promise.all([
+      Role.find({ company: profile.user, status: 'Open' })
+        .select('title department location type openings applicants salaryMin salaryMax salaryPeriod skills status points')
+        .lean(),
+      Accumulation.find({ company: id, createdBy: 'company' })
+        .select('title type status points skillTags deadline description')
+        .lean(),
+    ]);
+
+    res.json({ roles, accumulations });
   } catch (error) {
     next(error);
   }

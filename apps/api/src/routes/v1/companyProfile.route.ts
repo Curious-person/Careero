@@ -12,6 +12,13 @@ const router = Router();
 router.get('/profiles', authenticateToken, companyProfileController.getAllCompanyProfiles);
 
 /**
+ * @route   GET /api/v1/company/profiles/:id/details
+ * @desc    Get open roles and accumulations for a company profile
+ * @access  Private
+ */
+router.get('/profiles/:id/details', authenticateToken, companyProfileController.getCompanyProfileDetails);
+
+/**
  * @route   POST /api/v1/company/profiles
  * @desc    Create a company profile (school users)
  * @access  Private

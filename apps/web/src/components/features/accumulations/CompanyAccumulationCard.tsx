@@ -1,18 +1,16 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { type Accumulation } from "@/lib/accumulationsApi"
-import { 
-  Calendar, 
-  Target, 
-  Users, 
-  Briefcase, 
-  TrendingUp,
-  MoreHorizontal,
-  CheckCircle,
-  Clock,
-  XCircle
+import {
+    Briefcase,
+    Calendar,
+    CheckCircle,
+    Target,
+    TrendingUp,
+    Users,
+    XCircle
 } from "lucide-react"
 
 interface CompanyAccumulationCardProps {
@@ -69,6 +67,8 @@ const getTypeIcon = (type: Accumulation['type']) => {
       return TrendingUp
     case 'Event':
       return Users
+    default:
+      return Briefcase
   }
 }
 

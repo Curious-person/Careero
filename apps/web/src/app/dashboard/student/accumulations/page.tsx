@@ -1,20 +1,38 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useSearchParams } from 'next/navigation'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import {
-  Layers, LayoutDashboard, Users, Briefcase,
-  Trophy, Clock, CalendarDays, BookOpen, CheckCircle,
-  X, Star, Zap, Target, ChevronRight, Loader2,
-  School, Building2, UserPlus, Award, ExternalLink,
-  GraduationCap, TrendingUp, ArrowLeft, AlarmClock,
-  ListChecks, ChevronDown, ChevronUp
-} from 'lucide-react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiClient } from '@/lib/apiClient'
+import { AnimatePresence, motion } from 'framer-motion'
+import {
+    AlarmClock,
+    ArrowLeft,
+    Award,
+    BookOpen,
+    Briefcase,
+    Building2,
+    CalendarDays,
+    CheckCircle,
+    ChevronRight,
+    Clock,
+    ExternalLink,
+    GraduationCap,
+    Layers, LayoutDashboard,
+    ListChecks,
+    Loader2,
+    School,
+    Star,
+    Target,
+    TrendingUp,
+    Trophy,
+    UserPlus,
+    Users,
+    X,
+    Zap
+} from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { Suspense, useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -391,7 +409,7 @@ function ActiveAccumulationView({
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────
-export default function StudentAccumulationsPage() {
+function StudentAccumulationsPageContent() {
   const searchParams = useSearchParams()
   const targetId = searchParams.get('id')
 
@@ -740,7 +758,7 @@ export default function StudentAccumulationsPage() {
                     })()}
                     {selectedAccumForDrawer.type}
                   </div>
-                  <button onClick={() => setSelectedAccumForDrawer(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <button onClick={() => setSelectedAccumForDrawer(null)} aria-label="Close" className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                     <X className="w-5 h-5 text-gray-400" />
                   </button>
                 </div>
@@ -816,5 +834,13 @@ export default function StudentAccumulationsPage() {
         )}
       </AnimatePresence>
     </DashboardLayout>
+  )
+}
+
+export default function StudentAccumulationsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="w-10 h-10 animate-spin text-gray-400" /></div>}>
+      <StudentAccumulationsPageContent />
+    </Suspense>
   )
 }

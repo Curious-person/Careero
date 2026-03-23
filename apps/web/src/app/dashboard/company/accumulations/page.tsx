@@ -1,22 +1,21 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from "react"
-import DashboardLayout from "@/components/layouts/DashboardLayout"
 import CompanyAccumulationCard from "@/components/features/accumulations/CompanyAccumulationCard"
 import CompanyAccumulationForm from "@/components/features/accumulations/CompanyAccumulationForm"
 import ParticipantManagementModal from "@/components/features/accumulations/ParticipantManagementModal"
+import DashboardLayout from "@/components/layouts/DashboardLayout"
 import {
   type Accumulation,
   type CreateAccumulationFormData,
   type Participant,
-  getMyCompanyAccumulations,
-  createCompanyAccumulation,
-  endCompanyAccumulation,
   cancelCompanyAccumulation,
+  createCompanyAccumulation,
   deleteCompanyAccumulation,
+  endCompanyAccumulation,
+  getMyCompanyAccumulations,
 } from "@/lib/accumulationsApi"
-import { Calendar, Briefcase, Users, Target, AlertCircle, Loader2 } from "lucide-react"
-import { X } from "lucide-react"
+import { AlertCircle, Briefcase, Calendar, Target, Users, X } from "lucide-react"
+import React, { useCallback, useEffect, useState } from "react"
 
 export default function CompanyAccumulationsPage() {
   const [accumulations, setAccumulations] = useState<Accumulation[]>([])

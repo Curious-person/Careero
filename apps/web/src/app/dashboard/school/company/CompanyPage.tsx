@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Building2, ChevronLeft, Mail, MapPin, Phone, Globe, Loader2, Plus, X } from "lucide-react"
-import { getAllCompanyProfiles, createCompanyProfile, type CompanyProfile, type CreateCompanyData } from "@/lib/companyProfilesApi"
+import { getAllCompanyProfiles, createCompanyProfile, getCompanyProfileDetails, type CompanyProfile, type CreateCompanyData, type CompanyRole, type CompanyAccumulation } from "@/lib/companyProfilesApi"
 
 const SIZE_OPTIONS = [
   "1-10 employees",
@@ -221,6 +221,9 @@ export default function CompanyPage({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [roles, setRoles] = useState<CompanyRole[]>([])
+  const [accumulations, setAccumulations] = useState<CompanyAccumulation[]>([])
+  const [detailsLoading, setDetailsLoading] = useState(false)
 
   useEffect(() => {
     getAllCompanyProfiles()
@@ -228,6 +231,15 @@ export default function CompanyPage({
       .catch(() => setError("Failed to load companies."))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (!selectedCompany) return
+    setDetailsLoading(true)
+    getCompanyProfileDetails(selectedCompany._id)
+      .then(d => { setRoles(d.roles); setAccumulations(d.accumulations) })
+      .catch(() => { setRoles([]); setAccumulations([]) })
+      .finally(() => setDetailsLoading(false))
+  }, [selectedCompany])
 
   const handleCreated = (company: CompanyProfile) => {
     setCompanies(prev => [company, ...prev])
@@ -310,6 +322,88 @@ export default function CompanyPage({
             </Card>
           )}
         </div>
+
+        {detailsLoading ? (
+          <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+        ) : (
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Open Intern Roles</CardTitle>
+                <CardDescription>{roles.length} open position{roles.length !== 1 ? "s" : ""}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {roles.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">No open roles at the moment.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {roles.map(role => (
+                      <div key={role._id} className="p-3 rounded-lg border space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-medium">{role.title}</p>
+                            <p className="text-xs text-muted-foreground">{role.department} · {role.location}</p>
+                          </div>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 shrink-0">{role.type}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>₱{role.salaryMin.toLocaleString()}–₱{role.salaryMax.toLocaleString()}/{role.salaryPeriod}</span>
+                          <span>{role.openings} opening{role.openings !== 1 ? "s" : ""}</span>
+                          <span>{role.applicants} applicant{role.applicants !== 1 ? "s" : ""}</span>
+                        </div>
+                        {role.skills.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {role.skills.map(s => (
+                              <span key={s} className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{s}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Accumulations</CardTitle>
+                <CardDescription>{accumulations.length} accumulation{accumulations.length !== 1 ? "s" : ""} available</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {accumulations.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">No accumulations posted yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {accumulations.map(acc => (
+                      <div key={acc._id} className="p-3 rounded-lg border space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-medium">{acc.title}</p>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${
+                              acc.type === "Event" ? "bg-purple-100 text-purple-700" :
+                              acc.type === "Course" ? "bg-blue-100 text-blue-700" :
+                              "bg-orange-100 text-orange-700"
+                            }`}>{acc.type}</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{acc.points} pts</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Deadline: {new Date(acc.deadline).toLocaleDateString()}</p>
+                        {acc.skillTags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {acc.skillTags.map(t => (
+                              <span key={t} className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{t}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     )
   }

@@ -318,7 +318,7 @@ export default function StudentsPage({
             <div>
               <h3 className="text-sm font-bold text-yellow-800">Account Under Evaluation</h3>
               <p className="text-sm text-yellow-700 mt-1 leading-relaxed">
-                This student's profile is currently being reviewed by your School Administration. 
+                This student&apos;s profile is currently being reviewed by your School Administration. 
                 Certain features like Accumulations, Jobs, and Public Sharing are temporarily locked until verification is complete.
               </p>
             </div>
